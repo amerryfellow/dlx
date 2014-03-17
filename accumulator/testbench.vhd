@@ -1,10 +1,7 @@
--------------------------------------------------------------------------------
-
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use work.constants.all;
--------------------------------------------------------------------------------
 
 entity ACC_tb is
 end ACC_tb;
