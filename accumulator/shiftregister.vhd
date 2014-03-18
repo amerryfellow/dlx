@@ -11,7 +11,7 @@ entity SHIFTREGISTER is
 		EN		: in std_logic; 
 		DIN		: in std_logic_vector (0 to 15); 
 		PRN		: out std_logic_vector (0 to 15); 
-		ZERO_D	: out std_logic;
+		ZERO_D	: out std_logic
 	);
 end SHIFTREGISTER;
 

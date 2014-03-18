@@ -4,8 +4,8 @@ use ieee.std_logic_unsigned.all;
 
 entity RIPPLECARRYADDER is 
 	generic (
-		DRCAS : 	time := 0 ns;
-		 DRCAC : 	time := 0 ns;
+		RIPPLECARRYADDER_DELAY_S : 	time := 0 ns;
+		RIPPLECARRYADDER_DELAY_C : 	time := 0 ns
 	);
 	
 	port (
@@ -13,7 +13,7 @@ entity RIPPLECARRYADDER is
 		B:	in	std_logic_vector(5 downto 0);
 		Ci:	in	std_logic;
 		S:	out	std_logic_vector(5 downto 0);
-		Co:	out	std_logic;
+		Co:	out	std_logic
 	);
 end RIPPLECARRYADDER;
 
@@ -25,8 +25,8 @@ architecture STRUCTURAL of RIPPLECARRYADDER is
 
 	component FULLADDER
 		generic (
-			DFAS : 	time := 0 ns;
-			DFAC : 	time := 0 ns;
+			FULLADDER_DELAY_S : 	time := 0 ns;
+			FULLADDER_DELAY_C : 	time := 0 ns
 		);
 		
 		port (
@@ -34,7 +34,7 @@ architecture STRUCTURAL of RIPPLECARRYADDER is
 			B:	in	std_logic;
 			Ci:	in	std_logic;
 			S:	out	std_logic;
-			Co:	out	std_logic;
+			Co:	out	std_logic
 		);
 	end component; 
 
@@ -46,14 +46,17 @@ architecture STRUCTURAL of RIPPLECARRYADDER is
 		ADDER1:
 			for i in 1 to 6 generate
 				FAI : FULLADDER
-					generic map (DFAS => DRCAS, DFAC => DRCAC) 
+					generic map (
+						FULLADDER_DELAY_S => RIPPLECARRYADDER_DELAY_S,
+						FULLADDER_DELAY_C => RIPPLECARRYADDER_DELAY_C
+					) 
 					port map (A(i-1), B(i-1), CTMP(i-1), STMP(i-1), CTMP(i)); 
 			end generate;
 end STRUCTURAL;
 
 architecture BEHAVIORAL of RIPPLECARRYADDER is
 	begin
-		S <= (A + B) after DRCAS;
+		S <= (A + B) after RIPPLECARRYADDER_DELAY_S;
 end BEHAVIORAL;
 
 -- Configurations
@@ -72,3 +75,4 @@ configuration CFG_RIPPLECARRYADDER_BEHAVIORAL of RIPPLECARRYADDER is
 	for BEHAVIORAL
 	end for;
 end CFG_RIPPLECARRYADDER_BEHAVIORAL;
+

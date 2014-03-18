@@ -2,10 +2,10 @@ library IEEE;
 use IEEE.std_logic_1164.all; --  libreria IEEE con definizione tipi standard logic
 use WORK.constants.all; -- libreria WORK user-defined
 
-entity INVERTERis
+entity INVERTER is
 	port (
 		A:	In	std_logic;
-		Y:	Out	std_logic;
+		Y:	Out	std_logic
 	);
 end INVERTER;
 

@@ -6,15 +6,15 @@ entity NAND1 is
 	port (
 		A:	In	std_logic;
 		B:	In	std_logic;
-		Y:	Out	std_logic;
+		Y:	Out	std_logic
 	);
 end NAND1;
 
 -- Architectures
 
-architecture STRUCTURAL of ND2 is
+architecture STRUCTURAL of NAND1 is
 	begin
-		Y <= not( A and B) after NAND_DELAY;
+		Y <= not( A and B) after NAND1_DELAY;
 end STRUCTURAL;
 
 architecture BEHAVIORAL of NAND1 is
@@ -22,12 +22,12 @@ architecture BEHAVIORAL of NAND1 is
 		P1: process(A,B) -- tutti gli ingressi utilizzati devono essere nella sensitivity list
 		begin
 			if (A='1') and (B='1') then
-				Y <='0' after NAND_DELAY;
+				Y <='0' after NAND1_DELAY;
 			elsif (A='0') or (B='0') then 
-				Y <='1' after NAND_DELAY;
+				Y <='1' after NAND1_DELAY;
 			end if;
 		end process;
-end ARCH2;
+end BEHAVIORAL;
 
 -- Configurations
 
@@ -36,7 +36,7 @@ configuration CFG_NAND1_STRUCTURAL of NAND1 is
 	end for;
 end CFG_NAND1_STRUCTURAL;
 
-configuration CFG_NAND_BEHAVIORAL of NAND1 is
+configuration CFG_NAND1_BEHAVIORAL of NAND1 is
 	for BEHAVIORAL
 	end for;
 end CFG_NAND1_BEHAVIORAL;

@@ -6,14 +6,14 @@ use WORK.constants.all;
 entity MUX is
 	generic (
 		N:			integer	:= numBit;
-		MUX_DELAY:	time	:= tp_mux;
+		MUX_DELAY:	time	:= tp_mux
 	);
 	
 	port (
 		A:		in	std_logic_vector(N-1 downto 0);
 		B:		in	std_logic_vector(N-1 downto 0);
 		SEL:	in	std_logic;
-		Y:		out	std_logic_vector(N-1 downto 0);
+		Y:		out	std_logic_vector(N-1 downto 0)
 	);
 end MUX;
 
@@ -32,7 +32,7 @@ architecture STRUCTURAL of MUX is
 	component INVERTER
 		port (
 			A:	in	std_logic;
-			Y:	out	std_logic;
+			Y:	out	std_logic
 		);
 	end component;
 
@@ -40,7 +40,7 @@ architecture STRUCTURAL of MUX is
 		port (
 			A:	in	std_logic;
 			B:	in	std_logic;
-			Y:	out	std_logic;
+			Y:	out	std_logic
 		);
 	end component;
 
@@ -69,7 +69,7 @@ configuration CFG_MUX_STRUCTURAL of MUX is
 			use configuration WORK.CFG_INVERTER_BEHAVIORAL;
 		end for;  
 		for NAND_GEN 
-			for all:ND2
+			for all:NAND1
 				use configuration WORK.CFG_NAND1_STRUCTURAL;
 			end for;
 		end for;
