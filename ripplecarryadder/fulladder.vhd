@@ -1,10 +1,11 @@
 library ieee; 
-use ieee.std_logic_1164.all; 
+use ieee.std_logic_1164.all;
+use work.constants.all; 
 
 entity FULLADDER is 
 	generic (
-		FULLADDER_DELAY_S: time := 0 ns;
-		FULLADDER_DELAY_C: time := 0 ns
+		DFAS: time := DFAS;
+		DFAC: time := DFAC
 	);
 
 	port (
@@ -18,8 +19,8 @@ end FULLADDER;
 
 architecture BEHAVIORAL of FULLADDER is
 	begin
-		S <= A xor B xor Ci after FULLADDER_DELAY_S;
-		Co <= (A and B) or (B and Ci) or (A and Ci) after FULLADDER_DELAY_C;
+		S <= A xor B xor Ci after DFAS;
+		Co <= (A and B) or (B and Ci) or (A and Ci) after DFAC;
 end BEHAVIORAL;
 
 configuration CFG_FULLADDER_BEHAVIORAL of FULLADDER is

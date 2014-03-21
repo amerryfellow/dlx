@@ -1,18 +1,18 @@
 library IEEE;
 use IEEE.std_logic_1164.all; 
 
-entity FLIPFLOP_D is
+entity FLIPFLOP is
 	port (
 		D:	In	std_logic;
 		CK:	In	std_logic;
 		RESET:	In	std_logic;
 		Q:	Out	std_logic
 	);
-end FLIPFLOP_D;
+end FLIPFLOP;
 
 -- Architectures
 
-architecture BEHAVIORAL_SYNCHRONOUS of FLIPFLOP_D is
+architecture BEHAVIORAL_SYNCHRONOUS of FLIPFLOP is
 	begin
 		PSYNCH: process(CK,RESET)
 		begin
@@ -26,7 +26,7 @@ architecture BEHAVIORAL_SYNCHRONOUS of FLIPFLOP_D is
 		end process;
 end BEHAVIORAL_SYNCHRONOUS;
 
-architecture BEHAVIORAL_ASYNCHRONOUS of FLIPFLOP_D is
+architecture BEHAVIORAL_ASYNCHRONOUS of FLIPFLOP is
 	begin
 		PASYNCH: process(CK,RESET)
 		begin
@@ -40,13 +40,13 @@ end BEHAVIORAL_ASYNCHRONOUS;
 
 -- Configurations
 
-configuration CFG_FLIPFLOP_D_SYNCHRONOUS of FLIPFLOP_D is
+configuration CFG_FLIPFLOP_SYNCHRONOUS of FLIPFLOP is
 	for BEHAVIORAL_SYNCHRONOUS
 	end for;
-end CFG_FLIPFLOP_D_SYNCHRONOUS;
+end CFG_FLIPFLOP_SYNCHRONOUS;
 
-configuration CFG_FLIPFLOP_D_ASYNCHRONOUS of FLIPFLOP_D is
+configuration CFG_FLIPFLOP_ASYNCHRONOUS of FLIPFLOP is
 	for BEHAVIORAL_ASYNCHRONOUS
 	end for;
-end CFG_FLIPFLOP_D_ASYNCHRONOUS;
+end CFG_FLIPFLOP_ASYNCHRONOUS;
 

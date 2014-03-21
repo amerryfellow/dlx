@@ -26,13 +26,13 @@ end BEHAVIORAL;
 
 architecture STRUCTURAL of MUX is
 	signal A_NAND: std_logic_vector(N-1 downto 0);--OUTPUT OF FIRST NAND A_NAND
-	signal B_NAND: std_logic_vector(N-1 downto 0);
+	signal B_NAND: std_logic_vector(N-1 downto 0);--OUTPUT OF FIRST NAND B_NAND
 	signal SEL_NOT: std_logic;
 
 	component INVERTER
 		port (
 			A:	in	std_logic;
-			Y:	out	std_logic
+			Y:	out	std_logic  --Y<= not A;
 		);
 	end component;
 
@@ -40,7 +40,7 @@ architecture STRUCTURAL of MUX is
 		port (
 			A:	in	std_logic;
 			B:	in	std_logic;
-			Y:	out	std_logic
+			Y:	out	std_logic --Y <= A nand B;
 		);
 	end component;
 

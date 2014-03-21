@@ -14,7 +14,7 @@ end NAND1;
 
 architecture STRUCTURAL of NAND1 is
 	begin
-		Y <= not( A and B) after NAND1_DELAY;
+		Y <= not( A and B) after NDDELAY;
 end STRUCTURAL;
 
 architecture BEHAVIORAL of NAND1 is
@@ -22,9 +22,9 @@ architecture BEHAVIORAL of NAND1 is
 		P1: process(A,B) -- tutti gli ingressi utilizzati devono essere nella sensitivity list
 		begin
 			if (A='1') and (B='1') then
-				Y <='0' after NAND1_DELAY;
+				Y <='0' after NDDELAY;
 			elsif (A='0') or (B='0') then 
-				Y <='1' after NAND1_DELAY;
+				Y <='1' after NDDELAY;
 			end if;
 		end process;
 end BEHAVIORAL;

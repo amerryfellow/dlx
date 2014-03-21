@@ -3,12 +3,10 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use work.constants.all;
 
-entity ACCUMULATOR_TB is
-end ACCUMULATOR_TB;
+entity ACC_tb is
+end ACC_tb;
 
--- Architectures
-
-architecture TEST of ACCUMULATOR_TB is
+architecture TEST of ACC_tb is
 	component ACCUMULATOR
 		port (
 			A          : in  std_logic_vector(numBit - 1 downto 0);
@@ -17,7 +15,7 @@ architecture TEST of ACCUMULATOR_TB is
 			RST_n      : in  std_logic;
 			ACCUMULATE : in  std_logic;
 			--- ACC_EN_n   : in  std_logic;  -- optional use of the enable
-			Y          : out std_logic_vector(numBit - 1 downto 0);
+			Y          : out std_logic_vector(numBit - 1 downto 0)
 		);
 	end component;
 
@@ -30,7 +28,17 @@ architecture TEST of ACCUMULATOR_TB is
 	signal Y_i          : std_logic_vector(numBit - 1 downto 0);
 
 	begin  -- TEST
-		DUT: ACC
+		DUT: ACCUMULATOR
+		port map (
+			A          => A_i,
+			B          => B_i,
+			CLK        => CLK_i,
+			RST_n      => RST_n_i,
+			ACCUMULATE => ACCUMULATE_i,
+			-- ACC_EN_n   => ACC_EN_n_i, -- optional
+			Y          => Y_i
+		);
+		DUT_BEH:ACCUMULATOR
 		port map (
 			A          => A_i,
 			B          => B_i,
@@ -49,67 +57,73 @@ architecture TEST of ACCUMULATOR_TB is
 
 		test: process
 		begin  -- process test
-			A_i          <= "00000000000000000000000000000001";
-			B_i          <= "00000000000000000000000000000010";
+			A_i          <= "0000000000000000000000000000000000000000000000000000000000000001";
+			B_i          <= "0000000000000000000000000000000000000000000000000000000000000010";
 			RST_n_i      <= '0';
-			---- ACC_EN_n_i   <= '0';  -- optional
+		--	ACC_EN_i   <= '0';  -- optional
 			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
 			wait for 12 ns;
 
-			A_i          <= "00000000000000000000000000000001";
-			B_i          <= "00000000000000000000000000000010";
-			RST_n_i      <= '1';
+			A_i          <= "0000000000000000000000000000000000000000000000000000000000000001";
+			B_i          <= "0000000000000000000000000000000000000000000000000000000000000010";
+			RST_n_i      <= '0';
 			---- ACC_EN_n_i   <= '0';   -- optional
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '0';                  -- seleziona ingresso FEEDBACK del mux
 			wait for 7 ns;
 
-			A_i          <= "00000000000000000000000000000001";
-			B_i          <= "00000000000000000000000000000010";
-			RST_n_i      <= '1';
+			A_i          <= "0000000000000000000000000000000000000000000000000000000000000001";
+			B_i          <= "0000000000000000000000000000000000000000000000000000000000000010";
+			RST_n_i      <= '0';
 			---- ACC_EN_n_i   <= '0';   -- optional
-			ACCUMULATE_i <= '0';                  -- seleziona ingresso B del mux
+		--	ACCUMULATE_i <= '0';                  -- seleziona ingresso B del mux
 			wait for 12 ns;
 
-			A_i          <= "00000000000000000000000000010000";
-			B_i          <= "00000000000000000000000000000010";
-			RST_n_i      <= '1';
-			-- ACC_EN_n_i   <= '0';
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+			A_i          <= "0000000000000000000000000000000000000000000000000000000000010000";
+  B_i          <= "0000000000000000000000000000000000000000000000000000000000000010";
+  RST_n_i      <= '0';
+  -- ACC_EN_n_i   <= '0';
+ -- ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
 
-			wait for 19 ns;
+  wait for 19 ns;
 
-			A_i          <= "00000000000000000000000000010000";
-			B_i          <= "00000000000000000000000000000010";
-			RST_n_i      <= '1';
-			---- ACC_EN_n_i   <= '1';    --- optional
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+  A_i          <= "0000000000000000000000000000000000000000000000000000000000010000";
+  B_i          <= "0000000000000000000000000000000000000000000000000000000000000010";
+  RST_n_i      <= '0';
+  ---- ACC_EN_n_i   <= '1';    --- optional
+ -- ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
 
-			wait for 20 ns;
+  wait for 20 ns;
 
-			A_i          <= "00000000000000000000000000010000";
-			B_i          <= "00000000000000000000000000000010";
-			RST_n_i      <= '1';
-			--- ACC_EN_n_i   <= '0'; -- optional
-			ACCUMULATE_i <= '1';
+  A_i          <= "0000000000000000000000000000000000000000000000000000000000010000";
+  B_i          <= "0000000000000000000000000000000000000000000000000000000000000010";
+  RST_n_i      <= '0';
+  --- ACC_EN_n_i   <= '0'; -- optional
+ -- ACCUMULATE_i <= '1';
 
-			wait for 5 ns;
+  wait for 5 ns;
 
-			A_i          <= "00000000000000000000000000010000";
-			B_i          <= "00000000000000000000000100000000";
-			RST_n_i      <= '1';
-			--- ACC_EN_n_i   <= '0';  -- optional
-			ACCUMULATE_i <= '0';
+  A_i          <= "0000000000000000000000000000000000000000000000000000000000010000";
+  B_i          <= "0000000000000000000000000000000000000000000000000000000100000000";
+  RST_n_i      <= '0';
+  --- ACC_EN_n_i   <= '0';  -- optional
+  ACCUMULATE_i <= '1';
 
-			wait ;
-		end process test;
+  wait ;
+    
+  end process test;
+
 end TEST;
 
--- Configurations
+-------------------------------------------------------------------------------
+
 
 configuration CFG_TESTACC of ACC_tb is
   for TEST
-      for DUT : ACC
-        use configuration WORK.CFG_ACC_BEHAVIORAL;
-      end for;
-  end for;
+      for DUT : ACCUMULATOR
+        use configuration WORK.CFG_ACCUMULATOR_STRUCTURAL;
+	  	end for;
+	  for DUT_BEH:ACCUMULATOR
+        use configuration WORK.CFG_ACCUMULATOR_BEHAVIOURAL;
+	  end for;
+end for;
 end CFG_TESTACC;

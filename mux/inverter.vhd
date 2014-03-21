@@ -12,7 +12,7 @@ end INVERTER;
 -- Architectures
 architecture BEHAVIORAL of INVERTER is
 begin
-	Y <= not(A) after INVERTER_DELAY;
+	Y <= not(A) after IVDELAY;
 end BEHAVIORAL;
 
 -- Configurations
