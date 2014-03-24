@@ -84,35 +84,36 @@ architecture STRUCTURAL of ACCUMULATOR is
 end STRUCTURAL;
 
 architecture BEHAVIOURAL of ACCUMULATOR is
-signal BEH_MUX_OUTPUT: std_logic_vector(NBIT-1 downto 0);
-signal BEH_OUT_ADD: std_logic_vector(NBIT-1 downto 0);
-signal BEH_FEEDBACK: std_logic_vector(NBIT-1 downto 0);
-signal Y_TEMP: std_logic_vector(NBIT-1 downto 0);
+	signal BEH_MUX_OUTPUT: std_logic_vector(NBIT-1 downto 0);
+	signal BEH_OUT_ADD: std_logic_vector(NBIT-1 downto 0);
+	signal BEH_FEEDBACK: std_logic_vector(NBIT-1 downto 0);
+	signal Y_TEMP: std_logic_vector(NBIT-1 downto 0);
 
-begin
+	begin
 
-MUX_PROCESS:process(B,BEH_FEEDBACK)
-			begin
-			if ACCUMULATE='1' then
-			   BEH_MUX_OUTPUT<=B;
-				else
-				BEH_MUX_OUTPUT<=BEH_FEEDBACK;
-			end if;
-			end process;
-ADD_PROCESS:process(A,BEH_MUX_OUTPUT)
-			begin
-				BEH_OUT_ADD <= A + BEH_MUX_OUTPUT;
-			end process;
-OUTPUT:		process(CLK,RST_N,BEH_OUT_ADD)
-			begin
-				if RST_N='1' then
-					Y<=(others=>'Z');
-					elsif CLK'event and CLK='1' then
-						Y<= BEH_OUT_ADD;
-						BEH_FEEDBACK <= BEH_OUT_ADD;
-					end if;
-			end process;
-	
+	MUX_PROCESS : process(B, BEH_FEEDBACK)
+	begin
+		if ACCUMULATE='1' then
+		   BEH_MUX_OUTPUT<=B;
+		else
+			BEH_MUX_OUTPUT<=BEH_FEEDBACK;
+		end if;
+	end process;
+
+	ADD_PROCESS : process(A, BEH_MUX_OUTPUT)
+	begin
+		BEH_OUT_ADD <= A + BEH_MUX_OUTPUT;
+	end process;
+
+	OUTPUT : process(CLK, RST_N, BEH_OUT_ADD)
+	begin
+		if RST_N='1' then
+			Y<=(others=>'Z');
+		elsif CLK'event and CLK='1' then
+			Y<= BEH_OUT_ADD;
+			BEH_FEEDBACK <= BEH_OUT_ADD;
+		end if;
+	end process;
 end BEHAVIOURAL;
 
 -- Configurations
@@ -120,19 +121,18 @@ end BEHAVIOURAL;
 configuration CFG_ACCUMULATOR_STRUCTURAL of ACCUMULATOR is
 	for STRUCTURAL
 		for MUX_PART: MUX
-				use configuration WORK.CFG_MUX_STRUCTURAL;
+			use configuration WORK.CFG_MUX_STRUCTURAL;
 		end for;
 		for ADDER: RCA_GENERIC 
-				use configuration WORK.CFG_RCA_STRUCTURAL;
+			use configuration WORK.CFG_RCA_STRUCTURAL;
 		end for;
-	for REG: REGISTER_FD
-				use configuration WORK.CFG_REGISTER_FD_SYNCHRONOUS;
-	end for;
-		
+		for REG: REGISTER_FD
+			use configuration WORK.CFG_REGISTER_FD_SYNCHRONOUS;
+		end for;
 	end for;
 end CFG_ACCUMULATOR_STRUCTURAL;
 
-configuration CFG_ACCUMULATOR_BEHAVIOURAL of ACCUMULATOR is
-	for BEHAVIOURAL
+configuration CFG_ACCUMULATOR_BEHAVIORAL of ACCUMULATOR is
+	for BEHAVIORAL
 	end for;
-end CFG_ACCUMULATOR_BEHAVIOURAL;
+end CFG_ACCUMULATOR_BEHAVIORAL;

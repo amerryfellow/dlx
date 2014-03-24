@@ -4,9 +4,9 @@ use WORK.constants.all; -- libreria WORK user-defined
 
 entity NAND1 is
 	port (
-		A:	In	std_logic;
-		B:	In	std_logic;
-		Y:	Out	std_logic
+		A:	in	std_logic;
+		B:	in	std_logic;
+		Y:	out	std_logic
 	);
 end NAND1;
 

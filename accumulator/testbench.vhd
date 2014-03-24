@@ -123,7 +123,7 @@ configuration CFG_TESTACC of ACC_tb is
         use configuration WORK.CFG_ACCUMULATOR_STRUCTURAL;
 	  	end for;
 	  for DUT_BEH:ACCUMULATOR
-        use configuration WORK.CFG_ACCUMULATOR_BEHAVIOURAL;
+        use configuration WORK.CFG_ACCUMULATOR_BEHAVIORAL;
 	  end for;
 end for;
 end CFG_TESTACC;

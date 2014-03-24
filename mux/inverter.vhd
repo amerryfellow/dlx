@@ -4,12 +4,13 @@ use WORK.constants.all; -- libreria WORK user-defined
 
 entity INVERTER is
 	port (
-		A:	In	std_logic;
-		Y:	Out	std_logic
+		A:	in	std_logic;
+		Y:	out	std_logic
 	);
 end INVERTER;
 
 -- Architectures
+
 architecture BEHAVIORAL of INVERTER is
 begin
 	Y <= not(A) after IVDELAY;

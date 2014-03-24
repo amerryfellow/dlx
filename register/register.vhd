@@ -8,10 +8,10 @@ entity REGISTER_FD is
 		DELAY_MUX: Time:= tp_mux
 	);
 	port (
-		DIN:	In	std_logic_vector(N-1 downto 0) ;
-		CK:	In	std_logic;
-		RESET:	In	std_logic;
-		DOUT:	Out	std_logic_vector(N-1 downto 0)
+		DIN:	in	std_logic_vector(N-1 downto 0);
+		CK:		in	std_logic;
+		RESET:	in	std_logic;
+		DOUT:	out	std_logic_vector(N-1 downto 0)
 	);
 end REGISTER_FD;
 
@@ -20,10 +20,10 @@ end REGISTER_FD;
 architecture SYNCHRONOUS of REGISTER_FD is ---SYNC REGISTER
 	component FLIPFLOP
 		port (
-			D:	In	std_logic;
-			CK:	In	std_logic;
-			RESET:	In	std_logic;
-			Q:	Out	std_logic
+			D:		in	std_logic;
+			CK:		in	std_logic;
+			RESET:	in	std_logic;
+			Q:		out	std_logic
 		);
 	end component;
 
@@ -37,10 +37,10 @@ end SYNCHRONOUS;
 architecture ASYNCHRONOUS of REGISTER_FD is
 	component FLIPFLOP
 		port (
-			D:	In	std_logic;
-			CK:	In	std_logic;
-			RESET:	In	std_logic;
-			Q:	Out	std_logic
+			D:		in	std_logic;
+			CK:		in	std_logic;
+			RESET:	in	std_logic;
+			Q:		out	std_logic
 		);
 	end component;
 
@@ -71,4 +71,3 @@ for ASYNCHRONOUS
 end for;
 end CFG_REGISTER_FD_ASYNCHRONOUS;
 
-		

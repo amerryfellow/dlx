@@ -9,11 +9,11 @@ entity FULLADDER is
 	);
 
 	port (
-		A:	In	std_logic;
-		B:	In	std_logic;
-		Ci:	In	std_logic;
-		S:	Out	std_logic;
-		Co:	Out	std_logic
+		A:	in	std_logic;
+		B:	in	std_logic;
+		Ci:	in	std_logic;
+		S:	out	std_logic;
+		Co:	out	std_logic
 	);
 end FULLADDER; 
 
