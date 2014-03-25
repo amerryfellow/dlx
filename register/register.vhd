@@ -15,7 +15,7 @@ entity REGISTER_FD is
 	);
 end REGISTER_FD;
 
--- Architecture
+-- Architectures
 
 architecture SYNCHRONOUS of REGISTER_FD is ---SYNC REGISTER
 	component FLIPFLOP

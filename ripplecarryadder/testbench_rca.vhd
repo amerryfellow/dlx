@@ -7,16 +7,16 @@ end TBRCA;
 
 architecture TEST of TBRCA is
 
-  component SHIFTREGISTER 
+  component LFSR16 
     port (CLK, RESET, LD, EN : in std_logic; 
           DIN : in std_logic_vector(15 downto 0); 
           PRN : out std_logic_vector(15 downto 0); 
           ZERO_D : out std_logic);
   end component;
 
-  component RIPPLECARRYADDER
-        generic ( RIPPLECARRYADDER_DELAY_S : Time := 0 ns;
-	          RIPPLECARRYADDER_DELAY_C : Time := 0 ns);
+  component RCA
+        generic ( DRCAS : Time := 0 ns;
+	          DRCAC : Time := 0 ns);
 	Port (	A:	In	std_logic_vector(5 downto 0);
 		B:	In	std_logic_vector(5 downto 0);
 		Ci:	In	std_logic;
@@ -36,18 +36,18 @@ architecture TEST of TBRCA is
 Begin
 
 -- Instanciate the ADDER without delay in the carry generation
-  UADDER1: RIPPLECARRYADDER
-	   generic map (RIPPLECARRYADDER_DELAY_S => 0.02 ns, RIPPLECARRYADDER_DELAY_C => 0 ns) 
+  UADDER1: RCA 
+	   generic map (DRCAS => 0.02 ns, DRCAC => 0 ns) 
 	   port map (A, B, Ci, S1, Co1);
   
 -- Instanciate the ADDER with delay
-  UADDER2: RIPPLECARRYADDER
-	   generic map (RIPPLECARRYADDER_DELAY_S => 0.02 ns, RIPPLECARRYADDER_DELAY_C => 0.02 ns) 
+  UADDER2: RCA 
+	   generic map (DRCAS => 0.02 ns, DRCAC => 0.02 ns) 
 	   port map (A, B, Ci, S2, Co2);
 
 -- Instanciate the ADDER behavioral
-  UADDER3: RIPPLECARRYADDER 
-	   generic map (RIPPLECARRYADDER_DELAY_S => 0.02 ns, RIPPLECARRYADDER_DELAY_C => 0.02 ns) 
+  UADDER3: RCA 
+	   generic map (DRCAS => 0.02 ns, DRCAC => 0.02 ns) 
 	   port map (A, B, Ci, S3, Co3);
   
 
@@ -70,7 +70,7 @@ Begin
   B(2) <= PRN(5);
 
 -- Instanciate the Unit Under Test (UUT)
-  UUT: SHIFTREGISTER port map (CLK=>CLK, RESET=>RESET, LD=>LD, EN=>EN, 
+  UUT: LFSR16 port map (CLK=>CLK, RESET=>RESET, LD=>LD, EN=>EN, 
                         DIN=>DIN,PRN=>PRN, ZERO_D=>ZERO_D);
 -- Create the permanent Clock and the Reset pulse
   CLK <= not CLK after Period/2;
@@ -90,14 +90,14 @@ end TEST;
 
 configuration RCATEST of TBRCA is
   for TEST
-    for UADDER1: RIPPLECARRYADDER
-      use configuration WORK.CFG_RIPPLECARRYADDER_STRUCTURAL;
+    for UADDER1: RCA
+      use configuration WORK.CFG_RCA_STRUCTURAL;
     end for;
-    for UADDER2: RIPPLECARRYADDER
-      use configuration WORK.CFG_RIPPLECARRYADDER_STRUCTURAL;
+    for UADDER2: RCA
+      use configuration WORK.CFG_RCA_STRUCTURAL;
     end for;
-    for UADDER3: RIPPLECARRYADDER
-      use configuration WORK.CFG_RIPPLECARRYADDER_BEHAVIORAL;
+    for UADDER3: RCA
+      use configuration WORK.CFG_RCA_BEHAVIORAL;
     end for;
   end for;
 end RCATEST;

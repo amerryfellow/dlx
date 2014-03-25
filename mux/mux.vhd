@@ -3,10 +3,14 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use WORK.constants.all;
 
+--
+-- Generic n-bit mux with two input vectors and one output vector
+--
+
 entity MUX is
 	generic (
-		N:			integer	:= numBit;
-		MUX_DELAY:	time	:= tp_mux
+		N:			integer	:= numBit;		-- Number of bits
+		MUX_DELAY:	time	:= tp_mux		-- 
 	);
 	
 	port (
@@ -21,7 +25,7 @@ end MUX;
 
 architecture BEHAVIORAL of MUX is
 	begin
-		Y<= A when SEL='1' else B;
+		Y<= A when SEL='1' else B after MUX_DELAY;
 end BEHAVIORAL;
 
 architecture STRUCTURAL of MUX is
@@ -47,6 +51,13 @@ architecture STRUCTURAL of MUX is
 	begin
 		INV_GEN:
 			INVERTER port map(SEL, SEL_NOT);
+
+		-- Generates 3*N nand ports from the NAND1 compoment:
+		-- N nands are used to evaluate A_NAND(i) = NOT( A(i) * SEL )
+		-- N nands are used to evaluate B_NAND(i) = NOT( B(i) * SEL_NOT )
+		-- Then these outputs are fed to other N nands to evaluate
+		-- NOT( NOT( A(i) * SEL ) * NOT( B(i) * SEL_NOT ) ) = A * SEL + B * SEL_NOT
+		-- which is the classic n-bit mux behavior
 
 		NAND_GEN:
 			for i in 0 to N-1 generate

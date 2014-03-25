@@ -56,8 +56,11 @@ architecture STRUCTURAL of RCA is
 end STRUCTURAL;
 
 architecture BEHAVIORAL of RCA is
+signal sum:std_logic_vector(6 downto 0):=(others=>'0');
 	begin
-		S <= (A + B) after DRCAS;
+		sum <= ('0' & A) + B + Ci after DRCAS;
+		S <= sum(5 downto 0);
+		Co <= sum(6);
 end BEHAVIORAL;
 
 -- Configurations
@@ -66,7 +69,7 @@ configuration CFG_RCA_STRUCTURAL of RCA is
 	for STRUCTURAL 
 		for ADDER1
 			for all : FULLADDER
-				use configuration WORK.CFG_FA_BEHAVIORAL;
+				use configuration WORK.CFG_FULLADDER_BEHAVIORAL;
 			end for;
 		end for;
 	end for;

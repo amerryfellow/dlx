@@ -51,7 +51,7 @@ configuration MUX21GENTEST of TBMUX21_GENERIC is
       end for;
 
       for U2: MUX
-         use configuration WORK.CFG_MUX_STRUCTURAL; 
+         use configuration WORK.CFG_MUX_BEHAVIORAL; 
       end for;
 
    end for;

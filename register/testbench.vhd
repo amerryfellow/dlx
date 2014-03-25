@@ -32,14 +32,14 @@ architecture TEST of TB_REGISTER_FD is
 		   port map(A1,CK,RESET,output2);
 	
 	
-	RESET <= '1', '0' after 5 ns;
-	--A1 <= "0000111100001111";
+	RESET <= '1', '0' after 5 ns,'1' after 30.7 ns;
+	
 	
 	CLK_GEN:process(CK)
 	begin
 	ck<= (not ck) after 0.5 ns;
 	if ck'event and ck='1' then
-	A1<= A1(NBIT-2 downto 0) & A1(NBIT-1);
+	A1<= A1(NBIT-2 downto 0) & A1(NBIT-1);-- rotate left
 	end if;
 	end process;
 
@@ -47,10 +47,10 @@ end TEST;
 configuration TB_REGISTER_TEST of TB_REGISTER_FD is
 for test	
 	for REGISTER_SYNC : REGISTER_FD
-			use configuration WORK.CFG_REGISTER_FD_SYNC;
+			use configuration WORK.CFG_REGISTER_FD_SYNCHRONOUS;
 	end for;
 	for REGISTER_ASYNC: REGISTER_FD
-			use configuration WORK.CFG_REGISTER_FD_ASYNC;
+			use configuration WORK.CFG_REGISTER_FD_ASYNCHRONOUS;
 	end for;
 end for;
 end TB_REGISTER_TEST;
