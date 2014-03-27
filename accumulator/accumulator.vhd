@@ -3,6 +3,8 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use work.constants.all;
 
+
+
 entity ACCUMULATOR is
 	generic (
 		NBIT:integer:=numbit
@@ -13,7 +15,7 @@ entity ACCUMULATOR is
 		CLK        : in  std_logic;
 		RST_n      : in  std_logic;
 		ACCUMULATE : in  std_logic;
---		ACC_EN_n   : in  std_logic;  -- optional use of the enable
+		--- ACC_EN_n   : in  std_logic;  -- optional use of the enable
 		Y          : out std_logic_vector(NBIT - 1 downto 0)
 	);
 end ACCUMULATOR;
