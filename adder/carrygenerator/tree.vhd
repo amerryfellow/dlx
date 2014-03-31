@@ -58,8 +58,8 @@ architecture STRUCTURAL of TREE_G is
 		-- Reduce
 		columns := 32;
 
-		for row in 1:4 generate
-			for col in 0:columns generate
+		for row in 1 to 4 generate
+			for col in 0 to columns generate
 				-- Current element -> G(row, col)
 				
 				if col = 0 generate
