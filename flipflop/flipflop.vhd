@@ -16,11 +16,13 @@ architecture BEHAVIORAL_SYNCHRONOUS of FLIPFLOP is
 	begin
 		PSYNCH: process(CK,RESET)
 		begin
-			if CK'event and CK='1' then -- positive edge triggered:
-				if RESET='1' then -- active high reset 
+			-- The flipflop is positive-edge triggered
+			if CK'event and CK='1' then
+				-- Is "reset" present?
+				if RESET='1' then 
 					Q <= '0'; 
 				else
-					Q <= D; -- input is written on output
+					Q <= D;
 				end if;
 			end if;
 		end process;
@@ -32,7 +34,7 @@ architecture BEHAVIORAL_ASYNCHRONOUS of FLIPFLOP is
 		begin
 			if RESET='1' then
 				Q <= '0';
-			elsif CK'event and CK='1' then -- positive edge triggered:
+			elsif CK'event and CK='1' then
 				Q <= D; 
 			end if;
 		end process;

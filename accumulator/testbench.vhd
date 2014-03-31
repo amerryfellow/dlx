@@ -61,7 +61,7 @@ architecture TEST of ACC_tb is
 			B_i          <= x"0000000000000002";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '1';                  -- Sum
 			wait for 5 ns;
 
 			-- Should obtain 0000000000000003
@@ -70,7 +70,7 @@ architecture TEST of ACC_tb is
 			B_i          <= x"0000000000000009";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '1';                  -- Sum
 			wait for 5 ns;
 
 			-- 000000000000000A
@@ -79,7 +79,7 @@ architecture TEST of ACC_tb is
 			B_i          <= x"000000000000000A";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '1';                  -- Sum
 			wait for 5 ns;
 
 			-- 00000000F100000C
@@ -88,7 +88,7 @@ architecture TEST of ACC_tb is
 			B_i          <= x"1E1E1E1E1E1E1E1E";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '1';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '1';                  -- Sum
 			wait for 5 ns;
 
 			-- FFFFFFFFFFFFFFFF
@@ -97,7 +97,7 @@ architecture TEST of ACC_tb is
 			B_i          <= x"1E1E1E1E1E1E1E1E";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '0';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '0';                  -- Accumulate ( w/ overflow )
 			wait for 5 ns;
 
 			-- 000000000000000F
@@ -106,25 +106,25 @@ architecture TEST of ACC_tb is
 			B_i          <= x"1E1E1E1E1E1E1E1E";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '0';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '0';                  -- Accumulate
 			wait for 5 ns;
+
+			-- 000000000F00001F
 
 			A_i          <= x"0000000F00000010";
 			B_i          <= x"1E1E1E1E1E1E1E1E";
 			RST_n_i      <= '0';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '0';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '0';                  -- Accumulate
 			wait for 5 ns;
 
-			A_i          <= x"0000F00000000010";
-			B_i          <= x"1E1E1E1E1E1E1E1E";
+			A_i          <= x"FFFFFFFFFFFFFFFF";
+			B_i          <= x"0000000000000001";
 			RST_n_i      <= '1';
 		--	ACC_EN_i   <= '0';  -- optional
-			ACCUMULATE_i <= '0';                  -- seleziona ingresso FEEDBACK del mux
+			ACCUMULATE_i <= '1';                  -- Sum
 			wait for 5 ns;
-    
-  end process test;
-
+	end process test;
 end TEST;
 
 -------------------------------------------------------------------------------

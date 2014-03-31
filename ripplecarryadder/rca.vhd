@@ -3,9 +3,11 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use work.constants.all;
 
-entity RCA is 
+-- 6-bit Ripple Carry Adder
+
+entity RCA is
 	generic (
-		DRCAS : 	time :=DRCAS;
+		DRCAS : 	time := DRCAS;
 		DRCAC:		time := DRCAC
 	);
 	
@@ -16,13 +18,13 @@ entity RCA is
 		S:	out	std_logic_vector(5 downto 0);
 		Co:	out	std_logic
 	);
-end RCA; 
+end RCA;
 
 -- Architectures
 
 architecture STRUCTURAL of RCA is
-	signal STMP : std_logic_vector(5 downto 0);
-	signal CTMP : std_logic_vector(6 downto 0);
+	signal STMP : std_logic_vector(5 downto 0);	-- Sum propagation
+	signal CTMP : std_logic_vector(6 downto 0);	-- Carry propagation
 
 	component FULLADDER
 		generic (
@@ -40,10 +42,9 @@ architecture STRUCTURAL of RCA is
 	end component; 
 
 	begin
-
-		CTMP(0) <= Ci;
-		S <= STMP;
-		Co <= CTMP(6);
+		CTMP(0)	<= Ci;			-- Carry In
+		S		<= STMP;		-- Output parallel sum
+		Co		<= CTMP(6);		-- Output carry is the carry of the last FA
 
 		ADDER1: for I in 1 to 6 generate
 			FAI : FULLADDER
@@ -56,11 +57,11 @@ architecture STRUCTURAL of RCA is
 end STRUCTURAL;
 
 architecture BEHAVIORAL of RCA is
-signal sum:std_logic_vector(6 downto 0):=(others=>'0');
+	signal sum : std_logic_vector(6 downto 0) := (others=>'0');
 	begin
-		sum <= ('0' & A) + B + Ci after DRCAS;
-		S <= sum(5 downto 0);
-		Co <= sum(6);
+		sum	<= ('0' & A) + B + Ci after DRCAS;	-- Temporary signal
+		S	<= sum(5 downto 0);					-- Sum
+		Co	<= sum(6);							-- Carry out
 end BEHAVIORAL;
 
 -- Configurations

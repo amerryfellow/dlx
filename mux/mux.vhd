@@ -10,7 +10,7 @@ use WORK.constants.all;
 entity MUX is
 	generic (
 		N:			integer	:= numBit;		-- Number of bits
-		MUX_DELAY:	time	:= tp_mux		-- 
+		MUX_DELAY:	time	:= tp_mux		-- Delay
 	);
 	
 	port (
@@ -29,14 +29,14 @@ architecture BEHAVIORAL of MUX is
 end BEHAVIORAL;
 
 architecture STRUCTURAL of MUX is
-	signal A_NAND: std_logic_vector(N-1 downto 0);--OUTPUT OF FIRST NAND A_NAND
-	signal B_NAND: std_logic_vector(N-1 downto 0);--OUTPUT OF FIRST NAND B_NAND
+	signal A_NAND: std_logic_vector(N-1 downto 0); -- Output of first nand A_NAND
+	signal B_NAND: std_logic_vector(N-1 downto 0); -- Output of first nand B_NAND
 	signal SEL_NOT: std_logic;
 
 	component INVERTER
 		port (
 			A:	in	std_logic;
-			Y:	out	std_logic  --Y<= not A;
+			Y:	out	std_logic	-- Y <= not A;
 		);
 	end component;
 
@@ -44,7 +44,7 @@ architecture STRUCTURAL of MUX is
 		port (
 			A:	in	std_logic;
 			B:	in	std_logic;
-			Y:	out	std_logic --Y <= A nand B;
+			Y:	out	std_logic	--Y <= A nand B;
 		);
 	end component;
 
