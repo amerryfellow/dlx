@@ -7,12 +7,12 @@ entity INIT_PG is
 	port(
 		A:	in	std_logic;
 		B:	in	std_logic;
-		PG:	out	std_logic_vector(1 downto 0);
+		PG:	out	std_logic_vector(1 downto 0)
 	);
 end INIT_PG;
 
 architecture BEHAVIORAL of INIT_PG is
 	begin
-		P(0) <= A xor B;
-		G(1) <= A and B;
+		PG(0) <= A xor B;
+		PG(1) <= A and B;
 end BEHAVIORAL;
