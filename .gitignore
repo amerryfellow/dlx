@@ -3,3 +3,10 @@ work/
 *~
 transcript
 vsim.wlf
+*.log
+ARCH
+PACK
+*.mr
+*.syn
+*.bak
+ENTI
