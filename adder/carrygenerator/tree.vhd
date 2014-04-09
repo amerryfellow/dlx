@@ -9,44 +9,47 @@ use std.textio.all;
 
 entity TREE is
 	generic(
-		N: integer	:=	64;	--NSUMG;
-		NC: integer	:=	6	--NCSUMG
+		N:		integer	:= NSUMG;
+		LOGN:	integer := LOG(NSUMG)
 	);
+
 	port(
-		A:		in	std_logic_vector(N-1 downto 0);
-		B:		in	std_logic_vector(N-1 downto 0);
-		C:		out	std_logic_vector(N/4-1 downto 0)
+		A:		in	std_logic_vector(N-1 downto 0);		-- N bit input
+		B:		in	std_logic_vector(N-1 downto 0);		-- N bit input
+		C:		out	std_logic_vector(N/4-1 downto 0)	-- Generate a carry every fourth bit
 	);
 end TREE;
 
-architecture STRUCTURAL of TREE is
-	type SignalVector is array ((4*N-1) downto 0) of std_logic_vector(1 downto 0);
-	signal IC: SignalVector;	
+-- Architectures
 
+architecture STRUCTURAL of TREE is
+	-- IC is an array of PG signals, which in turn are a couple of signals ( one for the
+	-- propagate bit ( index 0 ), and one for the generate one ( index 1 ).
+	type SignalVector is array (GETINDEX(LOGN, N/4) downto 0) of std_logic_vector(1 downto 0);
+	signal IC: SignalVector;
+	
 	function GETINDEX(row : integer; col : integer) return integer is
 		variable result : integer;
-
+	
 		begin
 --			report integer'image(17*N);
-
 			if row <= 2 then
 --				report string'("case <= 3");
-				result := 2*N - 2 ** ( NC+1 - row ) + col;
+				result := 2*N - 2 ** (LOGN + 1 - row ) + col;
 			else
 --				report string'("case > 3");
 				result := 7*N/4 + (row-3) * N/4 + col;
 			end if;
 
 --			report integer'image(row) & string'(" - ") & integer'image(col) & string'(" => ") & integer'image(result);
-
-			return result;
+		return result;
 	end GETINDEX;
 
 	component INIT_PG
 		port(
 				A:	in	std_logic;
 				B:	in	std_logic;
-				PG:	out	std_logic_vector(1 downto 0) --PG(0) PROPAGATE PG(1) GENERATE
+				PG:	out	std_logic_vector(1 downto 0)
 			);
 	end component;
 
@@ -67,25 +70,28 @@ architecture STRUCTURAL of TREE is
 	end component;
 
 begin
-	-- Evaluate Pi and Gi
 	-- INIT_PG
-	GEN_INIT_PG:
-	for col in 0 to N-1 generate
+	-- The first row generates the p_i and g_i bits for all the a_i and
+	-- b_i bits. Their outputs are connected to the first N signals in IC.
+	GEN_INIT_PG: for col in 0 to N-1 generate
 		INIT_PGX: INIT_PG
 		port map(A => A(col), B => B(col), PG => IC(col));
 	end generate;
 
 	-- Main Tree
-	-- Reduces from 2^2+N to 2^2
+	-- Being this a radix-4 sparse tree, this stage aggregates every four PG into a single signal.
+	-- It thus reduces the number of columns from N to N/4.
 	ROW_GEN:	for row in 1 to 2 generate
 		COL_GEN: for col in 0 to N-1 generate
 			-- Current element -> G(row, col)
 
+			-- The first element is a TREE_G component.
 			COLUMN_0 : if col = 0 generate
 				TREE_GX: TREE_G
 				port map(IC(GETINDEX(row-1, 1)), IC(GETINDEX(row-1, 0))(1), IC(GETINDEX(row, col))(1));
 			end generate COLUMN_0;
 
+			-- Elsewise it's a TREE_PG component.
 			COLUMN_N : if col > 0 and col < (N/(2**row)) generate
 				TREE_PGX: TREE_PG
 				port map(IC(GETINDEX(row-1, (2*col+1))), IC(GETINDEX(row-1, 2*col)), IC(GETINDEX(row, col)));
@@ -93,35 +99,55 @@ begin
 		end generate;
 	end generate;
 
-	-- Reducer
-
-	RED_ROW:	for row in 0 to (NC-3) generate
+	-- GPG Network
+	-- This represents the final stage of the tree, where the number of consecutive blocks increases,
+	-- specifically in an exponential way ( 2^row ). This algorithm takes care of the proper generation
+	-- of the blocks and the relative connections between its parts.
+	--
+	-- The term ((col - ( col mod (2**row) ))/(2**row)) evaluates the group number for a column in a row,
+	-- being a group the consecutive instantiation of components of the same type. This is useful to know
+	-- because it allows us to know the type of the component to generate by only knowing its position (
+	-- row and column ) in the matrix/tree. Specifically: even groups are made of wires ( connection between
+	-- vertically ( same column ) adjacent cells ), while odd groups are a TREE_G ( if the group number is
+	-- 1 ) or a TREE_PG.
+	RED_ROW:	for row in 0 to (LOGN-3) generate
 		RED_COL:	for col in 0 to N/4-1 generate
 
-			-- Buffer
+			-- Group number is even ( X mod 2 = 0 ) -> Connection
 			RED_BUF:	if ((col - ( col mod (2**row) ))/(2**row)) mod 2 = 0 generate
 				IC(GETINDEX(row+3, col)) <= IC(GETINDEX(row+3-1, col));
 			end generate RED_BUF;
 
-			-- Generate
+			-- Group number is 1 ( X = 1 ) -> Generate
 			RED_G:	if((col - ( col mod (2**row) ))/(2**row)) = 1 generate
 				RED_G_GX: TREE_G
-					port map(IC(GETINDEX(row+3-1, col)), IC(GETINDEX(row+3-1, (2**row)-1))(1), IC(GETINDEX(row+3, col))(1));
+					port map(
+						IC(GETINDEX(row+3-1, col)),
+						IC(GETINDEX(row+3-1, (2**row)-1))(1),
+						IC(GETINDEX(row+3, col))(1)
+					);
 			end generate RED_G;
 
-			-- Propagate / Generate
-			RED_PG:	if ((col - ( col mod (2**row) ))/(2**row)) mod 2 /= 0 and ((col - ( col mod (2**row) ))/(2**row)) /= 1 generate
+			-- Group number is odd and different from 1 ( X mod 2 != 0 and X != 1) -> Propagate / Generate
+			RED_PG:	if
+				((col - ( col mod (2**row) ))/(2**row)) mod 2 /= 0 and
+				((col - ( col mod (2**row) ))/(2**row)) /= 1
+			generate
 				RED_PG_GX: TREE_PG
-					port map(IC(GETINDEX(row+3-1, col)), IC(GETINDEX(row+3-1, (col - col mod (2**row))-1)), IC(GETINDEX(row+3, col)));
+					port map(
+						IC(GETINDEX(row+3-1, col)),
+						IC(GETINDEX(row+3-1, (col - col mod (2**row))-1)),
+						IC(GETINDEX(row+3, col))
+					);
 			end generate RED_PG;
 		end generate RED_COL;
 	end generate RED_ROW;
 
 	-- COUT
-	-- C(15 downto 0) <= IC(GETINDEX(NC, N/4-1) downto GETINDEX(NC, 0))
+	-- The last row of the matrix/tree is made of TREE_G blocks, or connections leading to the corresponding
+	-- TREE_G block. We can just attach its G bit ( index 1 ) to the output vector.
 	COUT_GEN:	for col in 0 to N/4-1 generate
-		C(col) <= IC(GETINDEX(NC, col))(1);
+		C(col) <= IC(GETINDEX(LOGN, col))(1);
 	end generate COUT_GEN;
-
 
 end STRUCTURAL;

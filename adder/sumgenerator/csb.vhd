@@ -11,49 +11,52 @@ entity CSB is
 		S:	out	std_logic_vector(3 downto 0)
 	
 	);
-end CSB;  --Carry select block
+end CSB;
+
+-- Architectures
 
 architecture STRUCTURAL of CSB is
-signal sum_1:std_logic_vector(3 downto 0);
-signal sum_2:std_logic_vector(3 downto 0);
-signal co_1:std_logic;
-signal co_2:std_logic;
+	signal sum_1:std_logic_vector(3 downto 0);
+	signal sum_2:std_logic_vector(3 downto 0);
+	signal co_1:std_logic;
+	signal co_2:std_logic;
 
-
-
-component RCA_GENERIC
-generic (NBIT:integer:=4;
-			 DRCAS : 	Time := DRCAS;
-	         DRCAC : 	Time := DRCAC);
-	Port (A:	In	std_logic_vector(NBIT-1 downto 0);
-		B:	In	std_logic_vector(NBIT-1 downto 0);
-		Ci:	In	std_logic;
-		S:	Out	std_logic_vector(NBIT-1 downto 0);
-		Co:	Out	std_logic);
-end component; 
-
-component MUX 
-	generic (
-		N:			integer	:= 4;		-- Number of bits
-		MUX_DELAY:	time	:= tp_mux		-- 
-	);
+	component RCA_GENERIC
+		generic (
+			NBIT:integer:=4;
+			DRCAS : 	Time := DRCAS;
+			DRCAC : 	Time := DRCAC
+		);
 	
-	port (
-		A:		in	std_logic_vector(N-1 downto 0);
-		B:		in	std_logic_vector(N-1 downto 0);
-		SEL:	in	std_logic;
-		Y:		out	std_logic_vector(N-1 downto 0)
-	);
-end component;
+		port (
+			A:	in	std_logic_vector(NBIT-1 downto 0);
+			B:	in	std_logic_vector(NBIT-1 downto 0);
+			Ci:	in	std_logic;
+			S:	out	std_logic_vector(NBIT-1 downto 0);
+			Co:	out	std_logic
+		);
+	end component;
 
+	component MUX 
+		generic (
+			N:			integer	:= 4;
+			MUX_DELAY:	time	:= tp_mux
+		);
+		
+		port (
+			A:		in	std_logic_vector(N-1 downto 0);
+			B:		in	std_logic_vector(N-1 downto 0);
+			SEL:	in	std_logic;
+			Y:		out	std_logic_vector(N-1 downto 0)
+		);
+	end component;
 begin
 	RCA1: RCA_GENERIC port map(A,B,'0',sum_1,co_1);
 	RCA2: RCA_GENERIC port map(A,B,'0',sum_2,co_2);
 	MUX_S: MUX port map(sum_1,sum_2,Ci,S);
-
-
 end structural;
 
+-- Configurations
 
 configuration CFG_CSB of CSB is
 	for STRUCTURAL 
