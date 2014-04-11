@@ -7,9 +7,7 @@ use work.constants.all;
 
 entity RCA_GENERIC is 
 	generic (
-		NBIT	:	integer	:= numBit;
-		DRCAS	:	time	:= DRCAS;
-		DRCAC	:	time	:= DRCAC
+		NBIT	:	integer	:= defaultBits;
 	);
 	
 	port (
@@ -28,11 +26,6 @@ architecture STRUCTURAL of RCA_GENERIC is
 	signal CTMP : std_logic_vector(NBIT downto 0);
 
 	component FULLADDER
-		generic (
-			DFAS: time := DFAS;
-			DFAC: time := DFAC
-		);
-	
 		port (
 			A:	in	std_logic;
 			B:	in	std_logic;
@@ -50,19 +43,6 @@ architecture STRUCTURAL of RCA_GENERIC is
 		-- Generate and concatenate the FAs
 		ADDER1: for I in 1 to NBIT generate
 			FAI : FULLADDER
-			generic map (DFAS => DRCAS, DFAC => DRCAC) 
 			port map (A(I-1), B(I-1), CTMP(I-1), STMP(I-1), CTMP(I)); 
 	end generate;
 end STRUCTURAL;
-
--- Configurations
-
-configuration CFG_RCA_STRUCTURAL of RCA_GENERIC is
-  for STRUCTURAL 
-    for ADDER1
-      for all : FULLADDER
-        use configuration WORK.CFG_FULLADDER_BEHAVIORAL;
-      end for;
-    end for;
-  end for;
-end CFG_RCA_STRUCTURAL;
