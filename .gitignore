@@ -10,3 +10,5 @@ PACK
 *.syn
 *.bak
 ENTI
+pop.sh
+push.sh
