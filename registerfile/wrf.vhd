@@ -98,7 +98,7 @@ begin
 	-- The latter is the choice we made.
 	--
 
-	PROCESS_CALLRETWR: process(CLK, ENABLE, RESET, CALL, RET)
+	PROCESS_CALLRETWR: process(CLK)
 		variable index: integer := 0;
 	begin
 		-- Synchronous
@@ -113,6 +113,8 @@ begin
 					SWP <= 0;						-- Reset the SWP
 					FILL <= '0';					-- Cancel any ongoing memory operation
 					SPILL <= '0';					-- Cancel any ongoing memory operation
+					OUT1 <= (others => '0');
+					OUT2 <= (others => '0');
 				else
 
 					-- Is RETURN active?
@@ -225,7 +227,7 @@ begin
 	-- This process is responsible for handling the first read port of the register file.
 	--
 
-	PROCESS_RD1: process(CLK, RD1, RESET, ENABLE, ADDR_RD1)
+	PROCESS_RD1: process(CLK)
 	begin
 		-- Synchronous
 		if CLK'event and CLK = '1' then
@@ -252,7 +254,7 @@ begin
 	-- This process is responsible for handling the second read port of the register file.
 	--
 
-	PROCESS_RD2: process(CLK, RD2, RESET, ENABLE, ADDR_RD2)
+	PROCESS_RD2: process(CLK)
 	begin
 		-- Synchronous
 		if CLK'event and CLK='1' then
