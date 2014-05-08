@@ -72,9 +72,6 @@ begin
 	ENABLE <= '1';
 	RESET <= '0';
 
-	RD2 <= '0';
-	ADDR_RD2 <= (others => '0');
-
 	PCLOCK : process(CLK)
 	begin
 		CLK <= not(CLK) after 0.5 ns;
@@ -91,6 +88,9 @@ begin
 		RET			<= '0';
 		ADDR_RD1	<= x"00";
 		RD1			<= '0';
+		RD2 <= '0';
+		ADDR_RD2 <= (others => '0');
+
 
 		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 1
 
@@ -108,6 +108,26 @@ begin
 		CALL		<= '0';
 		ADDR_WR		<= x"08";
 		DATAIN		<= x"0A";
+		RET			<= '0';
+		ADDR_RD1	<= x"01";
+		RD1			<= '1';
+
+		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 2a ( GLOBALS WR )
+
+		WR			<= '1';
+		CALL		<= '0';
+		ADDR_WR		<= x"61";
+		DATAIN		<= x"90";
+		RET			<= '0';
+		ADDR_RD1	<= x"01";
+		RD1			<= '1';
+
+		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 2b ( GLOBALS WR )
+
+		WR			<= '1';
+		CALL		<= '0';
+		ADDR_WR		<= x"64";
+		DATAIN		<= x"94";
 		RET			<= '0';
 		ADDR_RD1	<= x"01";
 		RD1			<= '1';
@@ -142,7 +162,7 @@ begin
 		ADDR_RD1	<= x"05";
 		RD1			<= '1';
 
-		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 6 / CWP 2
+		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 6 / CWP 2 ( GLOBALS RD )
 
 		WR			<= '0';
 		CALL		<= '1';
@@ -151,8 +171,10 @@ begin
 		RET			<= '0';
 		ADDR_RD1	<= "00000000";
 		RD1			<= '0';
+		RD2			<= '1';
+		ADDR_RD2	<= x"64";
 
-		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 7 / CWP 3
+		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 7 / CWP 3 ( GLOBALS RD )
 
 		WR			<= '0';
 		CALL		<= '1';
@@ -161,6 +183,8 @@ begin
 		RET			<= '0';
 		ADDR_RD1	<= "00000000";
 		RD1			<= '0';
+		ADDR_RD2	<= x"61";
+		RD2			<= '1';
 
 		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 8 / CWP 4
 
@@ -171,6 +195,7 @@ begin
 		RET			<= '0';
 		ADDR_RD1	<= "00000000";
 		RD1			<= '0';
+		RD2			<= '0';
 
 		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 9 / CWP 5
 
@@ -209,6 +234,8 @@ begin
 		RET			<= '0';
 		ADDR_RD1	<= x"01";
 		RD1			<= '1';
+		ADDR_RD2	<= x"64";
+		RD2			<= '1';
 
 		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 12 / CWP 7
 
@@ -219,6 +246,7 @@ begin
 		RET			<= '1';
 		ADDR_RD1	<= "00000000";
 		RD1			<= '0';
+		RD2			<= '0';
 
 		wait until CLK'event and CLK='1' and BUSY='0';		-- CLK 13 / CWP 6
 

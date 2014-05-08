@@ -67,18 +67,18 @@ architecture behavioral of WRF is
 		variable rCWP : natural;
 		variable res: natural;
 	begin
-		if( ADDR(LOGN+1) = '1' ) then	-- Current Window OUT -> Next Window In
-			rCWP := CWP +1;
-		else
-			rCWP := CWP;
-		end if;
-
-		REAL_ADDR := conv_integer(ADDR(LOGN downto 0));
-
-		if(REAL_ADDR <= 3*N) then
+		if(conv_integer(ADDR) <= 3*N) then
+			if( ADDR(LOGN+1) = '1' ) then	-- Current Window OUT -> Next Window In
+				rCWP := CWP +1;
+			else
+				rCWP := CWP;
+			end if;
+	
+			REAL_ADDR := conv_integer(ADDR(LOGN downto 0));
+	
 			res := (rCWP mod F)*2*N+REAL_ADDR;
 		else
-			res := 2*F*N + REAL_ADDR - 3*N;
+			res := 2*F*N + conv_integer(ADDR) - 3*N;
 		end if;
 
 		report "Address translation: CWP " & integer'image(CWP) & " ADDR " & integer'image(REAL_ADDR) & " => INDEX " & integer'image(res);
@@ -113,8 +113,6 @@ begin
 					SWP <= 0;						-- Reset the SWP
 					FILL <= '0';					-- Cancel any ongoing memory operation
 					SPILL <= '0';					-- Cancel any ongoing memory operation
-					OUT1 <= (others => '0');
-					OUT2 <= (others => '0');
 				else
 
 					-- Is RETURN active?
