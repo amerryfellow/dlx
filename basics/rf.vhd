@@ -1,9 +1,8 @@
-library ieee; 
-use ieee.std_logic_1164.all; 
+library ieee;
+use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 use WORK.constants.all;
-
 
 entity RF is
 	generic(
@@ -12,22 +11,22 @@ entity RF is
 	);
 
 	port (
-		 CLK:		IN std_logic;
-		 RESET:		IN std_logic;
-		 ENABLE:	IN std_logic;
+		CLK:		IN std_logic;
+		RESET:		IN std_logic;
+		ENABLE:		IN std_logic;
 
-		 RD1:		IN std_logic;									-- Read 1
-		 RD2:		IN std_logic;									-- Read 2
-		 WR:		IN std_logic;									-- Write
+		RD1:		IN std_logic;									-- Read 1
+		RD2:		IN std_logic;									-- Read 2
+		WR:			IN std_logic;									-- Write
 
-		 ADD_WR:	IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Write Address
-		 ADD_RD1:	IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 1
-		 ADD_RD2:	IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 2
+		ADD_WR:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Write Address
+		ADD_RD1:	IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 1
+		ADD_RD2:	IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 2
 
-		 DATAIN:	IN std_logic_vector(NBIT-1 downto 0);			-- Write data
-		 OUT1:		OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
-		 OUT2:		OUT std_logic_vector(NBIT-1 downto 0)			-- Read data 2
-	 );
+		DATAIN:		IN std_logic_vector(NBIT-1 downto 0);			-- Write data
+		OUT1:		OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
+		OUT2:		OUT std_logic_vector(NBIT-1 downto 0)			-- Read data 2
+	);
 end RF;
 
 -- Architectures
