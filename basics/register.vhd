@@ -1,5 +1,5 @@
 library IEEE;
-use IEEE.std_logic_1164.all; 
+use IEEE.std_logic_1164.all;
 use WORK.constants.all;
 
 -- Flipflop-based N-bit register
@@ -18,23 +18,6 @@ end REGISTER_FD;
 
 -- Architectures
 
-architecture SYNCHRONOUS of REGISTER_FD is
-	component FLIPFLOP
-		port (
-			D:		in	std_logic;
-			CK:		in	std_logic;
-			RESET:	in	std_logic;
-			Q:		out	std_logic
-		);
-	end component;
-
-	begin
-		REG_GEN_S : for i in 0 to N-1 generate
-			SYNC_REG : FLIPFLOP
-				port map(DIN(i), CK, RESET, DOUT(i));
-		end generate;
-end SYNCHRONOUS;
-	
 architecture ASYNCHRONOUS of REGISTER_FD is
 	component FLIPFLOP
 		port (
@@ -50,25 +33,5 @@ architecture ASYNCHRONOUS of REGISTER_FD is
 			ASYNC_REG : FLIPFLOP
 				port map(DIN(i), CK, RESET, DOUT(i));
 		end generate;
-end ASYNCHRONOUS;	
-
-configuration CFG_REGISTER_FD_SYNCHRONOUS of REGISTER_FD is
-for SYNCHRONOUS
-	for REG_GEN_S
-		for all: FLIPFLOP
-			use configuration WORK.CFG_FLIPFLOP_SYNCHRONOUS;
-		end for;
-	end for;
-end for;
-end CFG_REGISTER_FD_SYNCHRONOUS;
-
-configuration CFG_REGISTER_FD_ASYNCHRONOUS of REGISTER_FD is
-for ASYNCHRONOUS
-	for REG_GEN_A
-		for all: FLIPFLOP
-			use configuration WORK.CFG_FLIPFLOP_ASYNCHRONOUS;
-		end for;
-	end for;
-end for;
-end CFG_REGISTER_FD_ASYNCHRONOUS;
+end ASYNCHRONOUS;
 

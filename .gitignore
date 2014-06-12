@@ -7,6 +7,7 @@ vsim.wlf
 ARCH
 PACK
 *.mr
+*.s
 *.syn
 *.bak
 ENTI

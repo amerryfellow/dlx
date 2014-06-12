@@ -46,7 +46,7 @@ architecture BEHAVIORAL of ALU is
 		);
 	end component;
 
-	component COMPGE
+	component COMPARATOR
 		generic (
 			N : integer := numBit
 		);
@@ -57,7 +57,6 @@ architecture BEHAVIORAL of ALU is
 			O:			out std_logic
 		);
 	end component;
-
 
 	signal HALF_NBIT:	integer;
 	signal ZERO_VECT:	std_logic_vector(N-1 downto 0);
@@ -85,7 +84,7 @@ architecture BEHAVIORAL of ALU is
 	signal COMPG_DATA2:		std_logic_vector(N-1 downto 0);
 	signal COMPG_OUT:		std_logic;
 
-	for COMPL : COMPARATOR use entity work.COMPARATOR(LOQWER_THAN);
+	for COMPL : COMPARATOR use entity work.COMPARATOR(LOWER_THAN);
 	signal COMPL_ENABLE:	std_logic;
 	signal COMPL_DATA1:		std_logic_vector(N-1 downto 0);
 	signal COMPL_DATA2:		std_logic_vector(N-1 downto 0);

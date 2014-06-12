@@ -25,7 +25,7 @@ end P4ADDER;
 architecture structural of P4ADDER is
 	signal CARRY, Ci:	std_logic_vector(N/4 - 1 downto 0);
 
-	component TREE 
+	component TREE
 		generic(
 			N:	integer	:= NSUMG;
 			NC:	integer	:= LOG(NSUMG)
@@ -49,13 +49,17 @@ architecture structural of P4ADDER is
 			S:	out	std_logic_vector(NBIT-1 downto 0)
 		);
 	end component;
+
+	signal OENABLE : std_logic_vector(N-1 downto 0);
 begin
 
 	SPARSE_TREE: TREE port map(A, B, CARRY);
-	
+
 	-- As C32 is not needed/ '0' is the first carry in
 	Ci			<= CARRY(NCSUMG-2 downto 0) & C0;
 	OVERFLOW	<= CARRY(NCSUMG-1);
-	
-	SUM_GENERATOR: SUMGENERATOR port map(A,B,Ci,S);
+
+	SUM_GENERATOR: SUMGENERATOR port map(A, B, Ci, OENABLE);
+
+	S <= OENABLE when ENABLE = '1' else (others => 'Z');
 end structural;

@@ -5,14 +5,14 @@ use ieee.numeric_std.all;
 use WORK.constants.all;
 
 entity WRF is
-	generic(
-			NBIT:	integer	:= numBit;
-			M:		integer := numGlobals;
-			F:		integer := numWindows;
-			N:		integer := numRegsPerWin;
-			NREG:	integer := numGlobals + 2*numWindows*numRegsPerWin;
-			LOGN:	integer := LOG(numRegsPerWin)
-		);
+	generic (
+		NBIT:	integer	:= numBit;
+		M:		integer := numGlobals;
+		F:		integer := numWindows;
+		N:		integer := numRegsPerWin;
+		NREG:	integer := numGlobals + 2*numWindows*numRegsPerWin;
+		LOGN:	integer := LOG(numRegsPerWin)
+	);
 
 	port (
 		CLK:			IN std_logic;

@@ -48,12 +48,15 @@ architecture main of CU_UP is
 		"000" & "00000" & "00000",	-- Nop
 		"000" & "00000" & "00000",	-- Nop
 		"000" & "00000" & "00000",	-- Nop
+
 		"111" & "00000" & "00000",	-- D R ADD
 		"000" & "10100" & "00000",	-- E R ADD
 		"000" & "00000" & "10001",	-- M R ADD
+
 		"111" & "00000" & "00000",	-- D R SUB
 		"000" & "10101" & "00000",	-- E R SUB
 		"000" & "00000" & "10001",	-- M R SUB
+
 		"111" & "00000" & "00000",	-- D R AND
 		"000" & "10110" & "00000",	-- E R AND
 		"000" & "00000" & "10001",	-- M R AND
@@ -150,7 +153,7 @@ begin  -- dlx_cu_rtl
 				end if;
 
 				report integer'image(to_integer(unsigned(OPCODE)))&" - "&integer'image(to_integer(unsigned(FUNC)));
-				
+
 				ICount <= ICount + 1;
 
 			-- SECOND CLOCK: EXE

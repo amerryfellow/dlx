@@ -14,8 +14,8 @@ entity PIPEREG is
 	port (
 		CLK:		in	std_logic;							-- Clock
 		RESET:		in	std_logic;							-- Reset
-		I:			in array(0 to REGS) of std_logic_vector(N-1 downto 0);
-		O:			out array(0 to REGS) of std_logic_vector(N-1 downto 0)
+		I:			in	array(0 to REGS-1) of std_logic_vector(N-1 downto 0);
+		O:			out	array(0 to REGS-1) of std_logic_vector(N-1 downto 0)
 	);
 end PIPEREG;
 
@@ -34,7 +34,7 @@ architecture DYN of PIPEREG is
 	end component;
 
 begin
-	G : for j in 0 to REGS generate
+	G : for j in 0 to REGS-1 generate
 		REG : REGISTER_FD port map
 			(CLK, RESET, I(j), O(j));
 	end generate;

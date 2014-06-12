@@ -10,9 +10,8 @@ use WORK.constants.all;
 entity MUX is
 	generic (
 		N:			integer	:= numBit;		-- Number of bits
-		MUX_DELAY:	time	:= tp_mux		-- Delay
 	);
-	
+
 	port (
 		A:		in	std_logic_vector(N-1 downto 0);
 		B:		in	std_logic_vector(N-1 downto 0);
@@ -22,11 +21,6 @@ entity MUX is
 end MUX;
 
 -- Architectures
-
-architecture BEHAVIORAL of MUX is
-	begin
-		Y<= A when SEL='1' else B after MUX_DELAY;
-end BEHAVIORAL;
 
 architecture STRUCTURAL of MUX is
 	signal A_NAND: std_logic_vector(N-1 downto 0); -- Output of first nand A_NAND
@@ -66,24 +60,3 @@ architecture STRUCTURAL of MUX is
 				Y_GEN	:NAND1	port map(A_NAND(i),	B_NAND(i),	Y(i));
 			end generate;
 end STRUCTURAL;
-
--- Configurations
-
-configuration CFG_MUX_BEHAVIORAL of MUX is
-	for BEHAVIORAL
-	end for;
-end CFG_MUX_BEHAVIORAL;
-
-configuration CFG_MUX_STRUCTURAL of MUX is
-	for STRUCTURAL
-		for INV_GEN:INVERTER
-			use configuration WORK.CFG_INVERTER_BEHAVIORAL;
-		end for;  
-		for NAND_GEN 
-			for all:NAND1
-				use configuration WORK.CFG_NAND1_STRUCTURAL;
-			end for;
-		end for;
-	end for;
-end CFG_MUX_STRUCTURAL;
-
