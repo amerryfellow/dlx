@@ -15,7 +15,7 @@ entity SRF is
 		RESET:		IN std_logic;
 		ENABLE:		IN std_logic;
 
-		RNOTW:			IN std_logic;								-- Read not Write
+		RNOTW:		IN std_logic;								-- Read not Write
 		ADDR:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address
 
 		DIN:		IN std_logic_vector(NBIT-1 downto 0);			-- Write data

@@ -30,6 +30,19 @@ architecture GIANLUCA of DLX is
 		);
 	end component;
 
+	component IRAM is
+		generic (
+			RAM_DEPTH :	integer := 48;
+			I_SIZE :	integer := 32
+		);
+
+		port (
+			Rst :	in  std_logic;
+			Addr :	in  std_logic_vector(I_SIZE - 1 downto 0);
+			Dout :	out std_logic_vector(I_SIZE - 1 downto 0)
+	    );
+	end component;
+
 	component PIPEREG is
 		generic (
 			N		: integer;
@@ -38,9 +51,29 @@ architecture GIANLUCA of DLX is
 
 		port (
 			CLK:		in	std_logic;							-- Clock
+			ENABLE:		in	std_logic;							-- Enable
 			RESET:		in	std_logic;							-- Reset
 			I:			in array(0 to REGS) of std_logic_vector(N-1 downto 0);
 			O:			out array(0 to REGS) of std_logic_vector(N-1 downto 0)
+		);
+	end component;
+
+	component SRF is
+		generic(
+			NBIT:	integer;
+			NREG:	natural
+		);
+
+		port (
+			CLK:		IN std_logic;
+			RESET:		IN std_logic;
+			ENABLE:		IN std_logic;
+
+			RNOTW:			IN std_logic;								-- Read not Write
+			ADDR:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address
+
+			DIN:		IN std_logic_vector(NBIT-1 downto 0);			-- Write data
+			DOUT:		OUT std_logic_vector(NBIT-1 downto 0);			-- Read data
 		);
 	end component;
 
@@ -117,6 +150,35 @@ architecture GIANLUCA of DLX is
 
 	signal ZERO_VECT:		std_logic_vector(N-1 downto 0);
 
+	-- CONTROL SIGNALS
+	signal PIPEREG1_ENABLE: std_logic;
+	signal PIPEREG2_ENABLE: std_logic;
+	signal PIPEREG3_ENABLE: std_logic;
+	signal PIPEREG4_ENABLE: std_logic;
+
+	signal MUXBOOT_CTR:		std_logic;
+
+	signal MUXRD_CTR:		std_logic;
+	signal WRF_ENABLE:		std_logic;
+	signal WRF_CALL:		std_logic;
+	signal WRF_RET:			std_logic;
+	signal WRF_RS1_ENABLE:	std_logic;
+	signal WRF_RS2_ENABLE:	std_logic;
+	signal WRF_RD_ENABLE:	std_logic;
+	signal WRF_MEM_BUS:		std_logic;
+	signal WRF_MEM_CTR:		std_logic;
+	signal WRF_BUSY:		std_logic;
+
+	signal MUXA_CTR:		std_logic;
+	signal MUXB_CTR:		std_logic;
+	signal ALU_FUNC:		std_logic_vector(1 downto 0);
+
+	signal MUXC_CTR:		std_logic;
+	signal MEMORY_ENABLE:	std_logic;
+	signal MEMORY_RNOTW:	std_logic;
+
+	signal MUXWB_CTR:		std_logic;
+
 	-- FIRST STAGE
 	signal PC:				std_logic_vector(N-1 downto 0);
 	signal IR:				std_logic_vector(N-1 downto 0);
@@ -165,25 +227,25 @@ architecture GIANLUCA of DLX is
 	begin
 		ZERO_VECT	<= (others => '0');
 
-		-- First Pipeline register
-		PIPEREG_IF_ID: PIPEREG
+		-- First Pipeline register IF -> ID
+		PIPEREG1: PIPEREG
 			generic map (N, 2)
-			port map (CLK, RESET, (NPC, IR), (NPC_RF, IR_RF));
+			port map (CLK, PIPEREG1_ENABLE, RESET, (NPC, IR), (NPC_RF, IR_RF));
 
-		-- Second Pipeline register
-		PIPEREG_ID_EXE: PIPEREG
+		-- Second Pipeline register ID -> EX
+		PIPEREG2: PIPEREG
 			generic map (N, 5)
-			port map (CLK, RESET, (NPC_RF, REGA, REGB, IM, RD), (NPC_EX, REGA_EX, REGB_EX, IM_EX, RD_EX));
+			port map (CLK, PIPEREG2_ENABLE, RESET, (NPC_RF, REGA, REGB, IM, RD), (NPC_EX, REGA_EX, REGB_EX, IM_EX, RD_EX));
 
-		-- Third Pipeline register
-		PIPEREG_EXE_MEM: PIPEREG
+		-- Third Pipeline register EX -> MEM
+		PIPEREG3: PIPEREG
 			generic map (N, 5)
-			port map (CLK, RESET, (NPC_EX, CMP_OUT, ALU_OUT, IM_EX, RD_EX), (NPC_MEM, CMP_OUT_MEM, ALU_OUT_MEM, IM_MEM, RD_MEM));
+			port map (CLK, PIPEREG3_ENABLE, RESET, (NPC_EX, CMP_OUT, ALU_OUT, IM_EX, RD_EX), (NPC_MEM, CMP_OUT_MEM, ALU_OUT_MEM, IM_MEM, RD_MEM));
 
-		-- Fourth Pipeline register
-		PIPEREG_MEM_WB: PIPEREG
+		-- Fourth Pipeline register MEM -> WB
+		PIPEREG4: PIPEREG
 			generic map (N, 2)
-			port map (CLK, RESET, (ALU_OUT_MEM, MEM_OUT, RD_MEM), (ALU_OUT_WB, MEM_OUT_WB, RD_WB));
+			port map (CLK, PIPEREG4_ENABLE, RESET, (ALU_OUT_MEM, MEM_OUT, RD_MEM), (ALU_OUT_WB, MEM_OUT_WB, RD_WB));
 
 		--
 		-- FIRST STAGE
@@ -197,8 +259,8 @@ architecture GIANLUCA of DLX is
 			generic map (N)
 			port map (PC, NPC);
 
-		ICACHE: REGISTERFILE
-			port map(CLK, RESET, PC, IR);
+		ICACHE: IRAM
+			port map(RESET, PC, IR);
 
 		--
 		-- SECOND STAGE
@@ -207,7 +269,10 @@ architecture GIANLUCA of DLX is
 		RS1		:= IR_RF(10 downto 6);
 		RS2		:= IR_RF(16 downto 11);
 		IM16	:= IR_RF(31 downto 17);
-		RD		:= IR_RF(16 downto 11) or IR_RF(21 downto 17); -- Depends on OPCODE!
+
+		MUXBOOT: MUX
+			generic map (6)
+			port map (IR_RF(16 downto 11), IR(21 downto 17), MUXRD_CTR, RD);
 
 		REGISTERFILE: WRF
 			generic map (N, registerfileNumGlobals, registerfileNumWindows, registerfileNumRegsPerWin)
@@ -225,11 +290,11 @@ architecture GIANLUCA of DLX is
 
 		MUXA: MUX
 			generic map (N)
-			port map (NPC_EX, REGA_EX, ???, MUXA_OUT);
+			port map (NPC_EX, REGA_EX, MUXA_CTR, MUXA_OUT);
 
 		MUXB: MUX
 			generic map (N)
-			port map (REGB_EX, IM_EX, ???, MUXB_OUT);
+			port map (REGB_EX, IM_EX, MUXB_CTR, MUXB_OUT);
 
 		ALUI: ALU
 			generic map (N)
@@ -243,11 +308,23 @@ architecture GIANLUCA of DLX is
 
 		MUXC: MUX
 			generic map (N)
-			port map (CMP_OUT_MEM, ZERO_VECT, ???, MUXC_OUT);
+			port map (CMP_OUT_MEM, ZERO_VECT, MUXC_CTR, MUXC_OUT);
 
 		MUXPC: MUX
 			generic map (N)
 			port map (NPC_MEM, ALU_OUT_MEM, MUXC_OUT, MUXPC_OUT);
+
+		MEMORY: SRF
+			generic map (N, 1024)
+			port map(CLK, RESET, MEMORY_ENABLE, MEMORY_RNOTW, ALU_OUT_MEM, IM_MEM, MEM_OUT);
+
+		--
+		-- FIFTH STAGE
+		--
+
+		MUXWB: MUX
+			generic map (N)
+			port map (ALU_OUT_WB, MEM_OUT_WB, MUXWB_CTR, MUXWB_OUT);
 
 		POSITION	<= conv_integer(DATA2); -- Position must be lower than N-1
 

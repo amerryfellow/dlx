@@ -6,105 +6,51 @@ use work.myTypes.all;
 
 entity CU_UP is
 	generic (
-		INSTRUCTIONS_EXECUTION_CYCLES	: integer := 3;		-- U Instructions Execution
 		MICROCODE_MEM_SIZE				: integer := 57;	-- U Microcode Memory Size
 															-- Memory Size
 		OP_CODE_SIZE	: integer := 6;						-- Op Code Size
 		ALU_OPC_SIZE	: integer := 2;						-- ALU Op Code Word Size
-		FUNC_SIZE		: integer := 11;					-- Func Field Size for R-Type Ops
 		CW_SIZE			: integer := 13						-- U Control Word Size
 	);
 
 	port (
-		Clk		: in  std_logic;		-- Clock
-		Rst		: in  std_logic;		-- Reset:Active-Low
-		OPCODE : in  std_logic_vector(OP_CODE_SIZE - 1 downto 0);
-		FUNC   : in  std_logic_vector(FUNC_SIZE - 1 downto 0);
+		Clk :				in std_logic;		-- Clock
+		Rst :				in std_logic;		-- Reset:Active-Low
+		OPCODE :			in std_logic_vector(OP_CODE_SIZE - 1 downto 0);
 
-		-- FIRST PIPE STAGE OUTPUTS
-		EN1		: out std_logic;				-- enables the register file and the pipeline registers
-		RF1		: out std_logic;				-- enables the read port 1 of the register file
-		RF2		: out std_logic;				-- enables the read port 2 of the register file
-		WF1		: out std_logic;				-- enables the write port of the register file
+		MUXBOOT_CTR:		out std_logic;
 
-		-- SECOND PIPE STAGE OUTPUTS
-		EN2		: out std_logic;				-- enables the pipe registers
-		S1		: out std_logic;				-- input selection of the first multiplexer
-		S2		: out std_logic;				-- input selection of the second multiplexer
-		ALU1	: out std_logic;				-- alu control bit
-		ALU2	: out std_logic;				-- alu control bit
+		PIPEREG1_ENABLE:	out std_logic;
+		MUXRD_CTR:			out std_logic;
+		WRF_ENABLE:			out std_logic;
+		WRF_CALL:			out std_logic;
+		WRF_RET:			out std_logic;
+		WRF_RS1_ENABLE:		out std_logic;
+		WRF_RS2_ENABLE:		out std_logic;
+		WRF_RD_ENABLE:		out std_logic;
+		WRF_MEM_BUS:		out std_logic;
+		WRF_MEM_CTR:		out std_logic;
+		WRF_BUSY:			in std_logic;
 
-		-- THIRD PIPE STAGE OUTPUTS
-		EN3		: out std_logic;				-- enables the memory and the pipeline registers
-		RM		: out std_logic;				-- enables the read-out of the memory
-		WM		: out std_logic;				-- enables the write-in of the memory
-		S3		: out std_logic					-- input selection of the multiplexer
+		PIPEREG2_ENABLE:	out std_logic;
+		MUXA_CTR:			out std_logic;
+		MUXB_CTR:			out std_logic;
+		ALU_FUNC:			out std_logic_vector(1 downto 0);
+
+		PIPEREG3_ENABLE:	out std_logic;
+		MUXC_CTR:			out std_logic;
+		MEMORY_ENABLE:		out std_logic;
+		MEMORY_RNOTW:		out std_logic;
+
+		PIPEREG4_ENABLE:	out std_logic;
+		MUXWB_CTR:			out std_logic;
 	);
 end CU_UP;
 
 architecture main of CU_UP is
 	type mem_array is array (integer range 0 to MICROCODE_MEM_SIZE - 1) of std_logic_vector(CW_SIZE - 1 downto 0);
 	signal microcode : mem_array := (
-		"000" & "00000" & "00000",	-- Nop
-		"000" & "00000" & "00000",	-- Nop
-		"000" & "00000" & "00000",	-- Nop
-
-		"111" & "00000" & "00000",	-- D R ADD
-		"000" & "10100" & "00000",	-- E R ADD
-		"000" & "00000" & "10001",	-- M R ADD
-
-		"111" & "00000" & "00000",	-- D R SUB
-		"000" & "10101" & "00000",	-- E R SUB
-		"000" & "00000" & "10001",	-- M R SUB
-
-		"111" & "00000" & "00000",	-- D R AND
-		"000" & "10110" & "00000",	-- E R AND
-		"000" & "00000" & "10001",	-- M R AND
-		"111" & "00000" & "00000",	-- D R OR
-		"000" & "10111" & "00000",	-- E R OR
-		"000" & "00000" & "10001",	-- M R OR
-		"110" & "00000" & "00000",	-- D I ADDI1
-		"000" & "11100" & "00000",	-- E I ADDI1
-		"000" & "00000" & "10001",	-- M I ADDI1
-		"110" & "00000" & "00000",	-- D I SUBI1
-		"000" & "11101" & "00000",	-- E I SUBI1
-		"000" & "00000" & "10001",	-- M I SUBI1
-		"110" & "00000" & "00000",	-- D I ANDI1
-		"000" & "11110" & "00000",	-- E I ANDI1
-		"000" & "00000" & "10001",	-- M I ANDI1
-		"110" & "00000" & "00000",	-- D I ORI1
-		"000" & "11111" & "00000",	-- E I ORI1
-		"000" & "00000" & "10001",	-- M I ORI1
-		"110" & "00000" & "00000",	-- D I ADDI2
-		"000" & "10000" & "00000",	-- E I ADDI2
-		"000" & "00000" & "10001",	-- M I ADDI2
-		"110" & "00000" & "00000",	-- D I SUBI2
-		"000" & "10001" & "00000",	-- E I SUBI2
-		"000" & "00000" & "10001",	-- M I SUBI2
-		"110" & "00000" & "00000",	-- D I ANDI2
-		"000" & "10010" & "00000",	-- E I ANDI2
-		"000" & "00000" & "10001",	-- M I ANDI2
-		"110" & "00000" & "00000",	-- D I ORI2
-		"000" & "10011" & "00000",	-- E I ORI2
-		"000" & "00000" & "10001",	-- M I ORI2
-		"110" & "00000" & "00000",	-- D I MOV
-		"000" & "10000" & "00000",	-- E I MOV
-		"000" & "00000" & "10001",	-- M I MOV
-		"100" & "00000" & "00000",	-- D I S REG1
-		"000" & "11000" & "00000",	-- E I S REG1
-		"000" & "00000" & "10001",	-- M I S REG1
-		"100" & "00000" & "00000",	-- D I S REG2
-		"000" & "11000" & "00000",	-- E I S REG2
-		"000" & "00000" & "10001",	-- M I S REG2
-		"111" & "00000" & "00000",	-- D I S MEM2
-		"000" & "10000" & "00000",	-- E I S MEM2
-		"000" & "00000" & "10110",	-- M I S MEM2
-		"110" & "00000" & "00000",	-- D I L MEM1
-		"000" & "11100" & "00000",	-- E I L MEM1
-		"000" & "00000" & "11011",	-- M I L MEM1
-		"110" & "00000" & "00000",	-- D I L MEM2
-		"000" & "10000" & "00000",	-- E I L MEM2
-		"000" & "00000" & "11011"	-- M I L MEM2
+		"000" & "00000" & "11011"	-- MEM2
 	);
 
 	signal cw : std_logic_vector(CW_SIZE - 1 downto 0);					-- Current Word
@@ -112,6 +58,9 @@ architecture main of CU_UP is
 	signal ICount : integer range 0 to INSTRUCTIONS_EXECUTION_CYCLES;	-- Current Stage
 
 begin  -- dlx_cu_rtl
+	-- MUXBOOT drives a '0' only upon reset
+	MUXBOOT_CTR <= RESET;
+
 	-- Read Current Word from the Microcode using index uPC
 	cw		<= microcode(uPC);
 
