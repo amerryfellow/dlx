@@ -1,7 +1,7 @@
 library IEEE;
 
 use IEEE.std_logic_1164.all;
-use WORK.constants.all;
+use WORK.alu_types.all;
 
 --
 -- Generic n-bit mux with two input vectors and one output vector
@@ -9,7 +9,7 @@ use WORK.constants.all;
 
 entity MUX is
 	generic (
-		N:			integer	:= numBit;		-- Number of bits
+		N:			integer	:= NSUMG		-- Number of bits
 	);
 
 	port (

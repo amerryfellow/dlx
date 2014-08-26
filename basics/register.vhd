@@ -1,12 +1,12 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use WORK.constants.all;
+use WORK.alu_types.all;
 
 -- Flipflop-based N-bit register
 
 entity REGISTER_FD is
 	generic (
-		N: integer:= numBit;
+		N: integer:= NSUMG
 	);
 	port (
 		CLK:	in	std_logic;							-- Clock
@@ -31,7 +31,7 @@ architecture ASYNCHRONOUS of REGISTER_FD is
 	begin
 		REG_GEN_A : for i in 0 to N-1 generate
 			ASYNC_REG : FLIPFLOP
-				port map(DIN(i), CK, RESET, DOUT(i));
+				port map(DIN(i), CLK, RESET, DOUT(i));
 		end generate;
 end ASYNCHRONOUS;
 

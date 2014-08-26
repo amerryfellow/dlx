@@ -1,6 +1,6 @@
 library IEEE;
 use IEEE.std_logic_1164.all; --  libreria IEEE con definizione tipi standard logic
-use WORK.constants.all; -- libreria WORK user-defined
+use WORK.alu_types.all; -- libreria WORK user-defined
 
 entity NAND1 is
 	port (
@@ -14,30 +14,7 @@ end NAND1;
 
 architecture STRUCTURAL of NAND1 is
 	begin
-		Y <= not( A and B) after NDDELAY;
+		Y <= ( A nand B);
 end STRUCTURAL;
 
-architecture BEHAVIORAL of NAND1 is
-	begin
-		P1: process(A,B) -- tutti gli ingressi utilizzati devono essere nella sensitivity list
-		begin
-			if (A='1') and (B='1') then
-				Y <='0' after NDDELAY;
-			elsif (A='0') or (B='0') then 
-				Y <='1' after NDDELAY;
-			end if;
-		end process;
-end BEHAVIORAL;
-
--- Configurations
-
-configuration CFG_NAND1_STRUCTURAL of NAND1 is
-	for STRUCTURAL
-	end for;
-end CFG_NAND1_STRUCTURAL;
-
-configuration CFG_NAND1_BEHAVIORAL of NAND1 is
-	for BEHAVIORAL
-	end for;
-end CFG_NAND1_BEHAVIORAL;
 

@@ -1,192 +1,231 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
-use IEEE.std_logic_arith.all;
-use WORK.constants.all;
 use WORK.alu_types.all;
 
 entity ALU is
 	generic (
-		N : integer := numBit
+		N : integer := NSUMG
 	);
-
+	
 	port (
-		FUNC:			in TYPE_OP;
-		DATA1, DATA2:	in std_logic_vector(N-1 downto 0);
-		OUTALU:			out std_logic_vector(N-1 downto 0)
+		FUNC:					in std_logic_vector(alu_control_word - 1 downto 0);
+		A, B:					in std_logic_vector(N-1 downto 0);
+		CLK: 					in std_logic;
+		RESET: 				in std_logic;
+		EN:						in std_logic;
+		OUTALU:				out std_logic_vector(N-1 downto 0)
 	);
 end ALU;
 
-architecture BEHAVIORAL of ALU is
+architecture DLX_ALU of ALU is
+	
 	component P4ADDER
-		generic(
-			N:			integer:=NSUMG
-		);
-
+		generic(N:integer:=NSUMG);
+	
 		port (
-			ENABLE:		in	std_logic;
-			A:			in	std_logic_vector(N-1 downto 0);
-			B:			in	std_logic_vector(N-1 downto 0);
-			C0:			in	std_logic;
-			S:			out	std_logic_vector(N-1 downto 0);
-			OVERFLOW:	out	std_logic
+			A:		in 	std_logic_vector(N-1 downto 0);
+			B:		in 	std_logic_vector(N-1 downto 0);
+			Cin:	in 	std_logic;
+			S:		out std_logic_vector(N-1 downto 0);
+			Cout:	out std_logic
 		);
 	end component;
-
-	component BOOTHMUL
-		generic(
-			N:			integer:=NBIT
-		);
+	
+	component LATCH
+		generic (
+		N: integer:= NSUMG
+	);
+	port (
+		DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+		EN:		in std_logic;
+		DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
+	);
+	end component;
+	
+	component COMPARATOR 
+		generic(N:integer:=NSUMG);
 
 		port(
-			ENABLE:		in	std_logic;
-			A:			in	std_logic_vector(N-1 downto 0);
-			B:			in	std_logic_vector(N-1 downto 0);
-			P:			out	std_logic_vector(2*N-1 downto 0)
+			SUM:	in std_logic_vector(N-1 downto 0);
+			Cout:	in std_logic;
+			ALEB: out std_logic;
+			ALB:	out std_logic;
+			AGB:	out std_logic;
+			AGEB: out std_logic;
+			ANEB:	out std_logic;
+			AEB:	out std_logic
 		);
 	end component;
-
-	component COMPARATOR
-		generic (
-			N : integer := numBit
+	
+	component T2logic 
+		generic(N:integer:=NSUMG);
+		
+		port(
+			R1 : 		in std_logic_vector(N-1 downto 0);
+			R2 : 		in std_logic_vector(N-1 downto 0);
+			S1	:		in std_logic;
+			S2	: 	in std_logic;
+			S3	: 	in std_logic;
+			L_OUT : out std_logic_vector(N-1 downto 0)
 		);
-
+		end component;
+	
+	
+	component bshift    -- barrel shifter
+			generic(N:integer:=NSUMG);
+      port (
+				direction : 	in  std_logic; -- '1' for left, '0' for right
+        logical : 		in  std_logic; -- '1' for logical, '0' for arithmetic
+        shift   :			in  std_logic_vector(4 downto 0);  -- shift count
+        input   : 		in  std_logic_vector (N-1 downto 0);
+        output  : 		out std_logic_vector (N-1 downto 0) 
+				);
+	end component;
+	
+	
+	
+	component REGISTER_FD 
+		generic (N: integer:= NSUMG);
+	
 		port (
-			ENABLE:		in	std_logic;
-			I1, I2:		in std_logic_vector(N-1 downto 0);
-			O:			out std_logic
-		);
+			DIN:		in	std_logic_vector(N-1 downto 0);		-- Data in
+			CLK:			in	std_logic;							-- Clock
+			RESET:	in	std_logic;							-- Reset
+			DOUT:		out	std_logic_vector(N-1 downto 0)		-- Data out
+	);
+	end component; 
+	
+	component BOOTHMUL 
+	generic (
+		N	: integer := NSUMG
+	);
+	port (
+		A	: in	std_logic_vector(N-1 downto 0);
+		B	: in	std_logic_vector(N-1 downto 0);
+		P	: out	std_logic_vector(2*N-1 downto 0)
+	);
 	end component;
-
-	signal HALF_NBIT:	integer;
-	signal ZERO_VECT:	std_logic_vector(N-1 downto 0);
-	signal IS_ZERO:		std_logic_vector(N-1 downto 0);
-	signal POSITION:	integer; -- # of position that a signal has to be shifted/rotated
-
-	-- Adder
-	signal ADDER_ENABLE:		std_logic;
-	signal ADDER_DATA1:			std_logic_vector(N-1 downto 0);
-	signal ADDER_DATA2:			std_logic_vector(N-1 downto 0);
-	signal ADDER_CIN:			std_logic;
-	signal ADDER_COUT:			std_logic;
-	signal ADDER_OUT:			std_logic_vector(N-1 downto 0);
-
-	-- Multiplier
-	signal MULTIPLIER_ENABLE:	std_logic;
-	signal MULTIPLIER_DATA1:	std_logic_vector(N-1 downto 0);
-	signal MULTIPLIER_DATA2:	std_logic_vector(N-1 downto 0);
-	signal MULTIPLIER_OUT:		std_logic_vector(2*N-1 downto 0);
-
-	-- Comparators
-	for COMPG : COMPARATOR use entity work.COMPARATOR(GREATER_THAN);
-	signal COMPG_ENABLE:	std_logic;
-	signal COMPG_DATA1:		std_logic_vector(N-1 downto 0);
-	signal COMPG_DATA2:		std_logic_vector(N-1 downto 0);
-	signal COMPG_OUT:		std_logic;
-
-	for COMPL : COMPARATOR use entity work.COMPARATOR(LOWER_THAN);
-	signal COMPL_ENABLE:	std_logic;
-	signal COMPL_DATA1:		std_logic_vector(N-1 downto 0);
-	signal COMPL_DATA2:		std_logic_vector(N-1 downto 0);
-	signal COMPL_OUT:		std_logic;
-
+	
+	component MUX5TO1 
+	generic (
+		N:			integer	:= NSUMG		-- Number of bits
+	
+	);
+	
+	port (
+		A:		in	std_logic_vector(N-1 downto 0);
+		B:		in	std_logic_vector(N-1 downto 0);
+		C:		in	std_logic_vector(N-1 downto 0);
+		D:		in	std_logic_vector(N-1 downto 0);
+		F:		in	std_logic_vector(N-1 downto 0);
+		SEL:	in	std_logic_vector(2 downto 0);
+		Y:		out	std_logic_vector(N-1 downto 0)
+	);
+	end component;
+	
+	
+	
+	signal logical:					std_logic;
+	signal s_depth:					std_logic_vector(4 downto 0);
+	signal dir:							std_logic;
+	signal MUL_A:						std_logic_vector(N-1 downto 0);
+	signal MUL_B:						std_logic_vector(N-1 downto 0);
+	signal logic_A:					std_logic_vector(N-1 downto 0);
+	signal logic_B:					std_logic_vector(N-1 downto 0);
+	signal int_A:						std_logic_vector(N-1 downto 0);
+	signal shift_A:					std_logic_vector(N-1 downto 0);
+	signal int_B:						std_logic_vector(N-1 downto 0);
+	signal Cin : 						std_logic:='0';
+	signal S1,S2,S3: 				std_logic:='0';
+	signal cout: 						std_logic;
+	signal flag_reg: 				std_logic_vector(N-1 downto 0);
+	signal int_SUM: 				std_logic_vector(N-1 downto 0);
+	signal MUL_LSB,L_OUT:		std_logic_vector(N-1 downto 0);
+	signal shift_out:				std_logic_vector(N-1 downto 0);
+	signal MUL_OUT:					std_logic_vector(2*N-1 downto 0);
+	signal MUX_SEL:					std_logic_vector(2 downto 0);
+	signal preout:					std_logic_vector(N-1 downto 0);
+	
 	begin
-		-- Pentium 4 adder
-		ADDER: P4ADDER
-			generic map (N)
-			port map (ADDER_ENABLE, ADDER_DATA1, ADDER_DATA2, ADDER_CIN, ADDER_COUT, ADDER_OUT);
-
-		-- Booth Multiplier
-		MULTIPLIER: BOOTHMUL
-			generic map (N)
-			port map (MULTIPLIER_ENABLE, MULTIPLIER_DATA1, MULTIPLIER_DATA2, MULTIPLIER_OUT);
-
-		-- Comparator - Greater Than
-		COMPG: COMPARATOR
-			generic map (N)
-			port map (COMPG_ENABLE, COMPG_DATA1, COMPG_DATA2, COMPG_OUT);
-
-		-- Comparator - Lower Than
-		COMPL: COMPARATOR
-			generic map (N)
-			port map (COMPL_ENABLE, COMPL_DATA1, COMPL_DATA2, COMPL_OUT);
-
-		-- Assignments
-
-		ZERO_VECT	<= (others => '0');
-		HALF_NBIT	<= N/2;
-		POSITION	<= conv_integer(DATA2); -- Position must be lower than N-1
-		IS_ZERO		<= not or_reduce(OUTALU);
-
-		P_ALU : process (FUNC, DATA1, DATA2)
+		P_ALU : process (FUNC, A, B)
 		begin
 			case FUNC is
-				when ADD =>
-					-- Use Pentium 4 adder
-					ADDER_ENABLE		<= '1';
-					ADDER_DATA1			<= DATA1;
-					ADDER_DATA2			<= DATA2;
-					ADDER_CIN			<= '0';
-					OUTALU				<= ADDER_OUT;
-
-				when SUB =>
-					-- Use Pentium 4 adder
-					ADDER_ENABLE		<= '1';
-					ADDER_DATA1			<= DATA1;
-					ADDER_DATA2			<= NOT DATA2;	-- Embed 2s complement
-					ADDER_CIN			<= '1';			--
-					OUTALU				<= ADDER_OUT;
-
-				when MULT =>
-					-- Use Booth's multiplier
-					MULTIPLIER_ENABLE	<= '1';
-					MULTIPLIER_DATA1	<= DATA1(N/2-1 downto 0);
-					MULTIPLIER_DATA2	<= DATA2(N/2-1 downto 0);
-					OUTALU				<= MULTIPLIER_OUT;
-
-				-- Bitwise Ops
-
-				when BITAND		=> OUTALU <= DATA1 and DATA2;
-				when BITOR		=> OUTALU <= DATA1 or DATA2;
-				when BITXOR		=> OUTALU <= DATA1 xor DATA2;
-
-				-- Shift / Rotate
-
-				when BITSHL		=> OUTALU <= DATA1(N-POSITION-1 downto 0) & ZERO_VECT(POSITION-1 downto 0);
-				when BITSHR		=> OUTALU <= ZERO_VECT(POSITION-1 downto 0) & DATA1(N-1 downto POSITION);
-				when BITROL		=> OUTALU <= DATA1(N-POSITION-1 downto 0) & DATA1(N-1 downto N-POSITION);
-				when BITROR		=> OUTALU <= DATA1(POSITION downto 0) & DATA1(N-1 downto POSITION+1);
-
-				-- Comparisons
-
-				when GT =>
-					COMPG_ENABLE	<= '1';
-					COMPG_DATA1		<= DATA1;
-					COMPG_DATA2		<= DATA2;
-					OUTALU			<= COMPG_OUT;
-
-				when LE =>
-					COMPG_ENABLE	<= '1';
-					COMPG_DATA1		<= DATA1;
-					COMPG_DATA2		<= DATA2;
-					OUTALU			<= not COMPG_OUT;
-
-				when LT =>
-					COMPL_ENABLE	<= '1';
-					COMPL_DATA1		<= DATA1;
-					COMPL_DATA2		<= DATA2;
-					OUTALU			<= COMPL_OUT;
-
-				when GE =>
-					COMPL_ENABLE	<= '1';
-					COMPL_DATA1		<= DATA1;
-					COMPL_DATA2		<= DATA2;
-					OUTALU			<= not COMPL_OUT;
-
-				-- Others
+				when ADD		=> int_A <= A;
+											 int_B <= B;
+											 Cin <= '0';
+											 MUX_SEL <= "000";
+											 
+				when SUBB		=> int_A <= A;
+											 int_B <= not B;
+											 Cin <= '1';
+											 MUX_SEL <= "000";
+											 
+				when MULT		=> MUL_A <= A;
+											 MUL_B <= B;
+											 MUX_SEL <= "100";
+				-- Bitwise
+				when BITAND		=> logic_A <= A;
+												 logic_B <= B;
+												 S1 <= '0';
+												 S2 <= '0';
+												 S3 <= '1';
+												 MUX_SEL <= "001";
+												 
+				when BITOR		=> logic_A <= A;
+												 logic_B <= B;
+												 S1 <= '1';
+												 S2 <= '1';
+												 S3 <= '1';
+												 MUX_SEL <= "001";
+												 
+				when BITXOR		=> logic_A <= A;
+												 logic_B <= B;
+												 S1 <= '1';
+												 S2 <= '1';
+												 S3 <= '0';
+												 MUX_SEL <= "001";
+												 
+				when FUNCSLL	=>	shift_A <= A;
+													s_depth <= B(4 downto 0);
+													dir <= '1';
+													logical <= '1';
+													MUX_SEL <= "011";
+													
+				when FUNCSRL	=> 	shift_A <= A;
+													s_depth <= B(4 downto 0);
+													dir <= '0';
+													logical <= '1';
+													MUX_SEL <= "011";
+													 
+				when FUNCSRA	=>	shift_A <= A;
+													s_depth <= B(4 downto 0);
+													dir <= '0';
+													logical <= '0';
+													MUX_SEL <= "011";
+													
+				when COMP			=> 	int_A <= A;
+													int_B <= not B;
+													Cin <= '1';
+													MUX_SEL <= "010";
+													
 				when others		=> null;
-
-			end case;
+			end case; 
 		end process;
-end BEHAVIORAL;
+	--	report integer'image(A) & string'(" - ") & integer'image(A_IN) & string'(" => ") & integer'image(result);
+		ADDER: 			P4ADDER port map (int_A,int_B,cin,int_SUM,cout);
+	--report integer'image(A) & string'(" - ") & integer'image(A_IN) & string'(" => ") & integer'image(int_SUM);
+		LOGIC: 			t2logic port map (logic_A,logic_B,S1,S2,S3,L_OUT);
+		COMPARE:		comparator port map	(int_SUM,cout,flag_reg(0),flag_reg(1),flag_reg(2),flag_reg(3),flag_reg(4),flag_reg(5));
+		flag_reg(6) <= cout nand cin; --overflow flag
+		flag_reg(N-1 downto 7) <= (others => '0');
+		SHIFTER:		bshift port map (dir,logical,s_depth,shift_A,shift_out);
+		MULTIPLIER:	BOOTHMUL port map	(MUL_A,MUL_B,MUL_OUT);
+		MUL_LSB <= MUL_OUT(N-1 downto 0);
+		MULTIPLEXER: MUX5TO1 port map(int_SUM,L_OUT,flag_reg,shift_out,MUL_LSB,MUX_SEL,preout);
+		--OUTPUT: REGISTER_FD port map (preout,CLK,RESET,OUTALU);
+		OUTPUT: LATCH port map (preout,EN,OUTALU);
+		
+end DLX_ALU; 
+
 
