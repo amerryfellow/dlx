@@ -1,51 +1,56 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 package cu is
 	-- Control unit input sizes
 	constant OPCODE_SIZE	: integer := 6;			-- OPCODE field size
 	constant FUNC_SIZE		: integer := 11;		-- FUNC field size
 
-	-- R-Type instruction -> OPCODE field
-	constant RTYPE : std_logic_vector(OP_CODE_SIZE - 1 downto 0) :=  "000000";
-
-	-- R-Type instruction -> FUNC field
-	constant RTYPE_ADD	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x20, FUNC_SIZE));
-	constant RTYPE_AND	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x24, FUNC_SIZE));
-	constant RTYPE_OR	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x25, FUNC_SIZE));
-	constant RTYPE_SUB	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x22, FUNC_SIZE));
-	constant RTYPE_XOR	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x26, FUNC_SIZE));
-	constant RTYPE_SGE	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x2d, FUNC_SIZE));
-	constant RTYPE_SLE	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x2c, FUNC_SIZE));
-	constant RTYPE_SLL	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x04, FUNC_SIZE));
-	constant RTYPE_SRL	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x06, FUNC_SIZE));
-	constant RTYPE_SNE	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x29, FUNC_SIZE));
-	constant RTYPE_SGT	: std_logic_vector(FUNC_SIZE - 1 downto 0)		:= std_logic_vector(to_unsigned(0x2b, FUNC_SIZE));
-
+subtype OPCODE_TYPE is std_logic_vector(OPCODE_SIZE - 1 downto 0);
 	-- I-Type instructions
-	constant ITYPE_ADD	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x08, OPCODE_SIZE));
-	constant ITYPE_AND	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x0c, OPCODE_SIZE));
-	constant ITYPE_OR	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x0d, OPCODE_SIZE));
-	constant ITYPE_SUB	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x0a, OPCODE_SIZE));
-	constant ITYPE_XOR	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x0e, OPCODE_SIZE));
-	constant ITYPE_SGE	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x1d, OPCODE_SIZE));
-	constant ITYPE_SLE	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x1c, OPCODE_SIZE));
-	constant ITYPE_SLL	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x14, OPCODE_SIZE));
-	constant ITYPE_SRL	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x16, OPCODE_SIZE));
-	constant ITYPE_SNE	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x19, OPCODE_SIZE));
-	constant ITYPE_SGT	: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x1b, OPCODE_SIZE));
+	constant ITYPE_ADD	: OPCODE_TYPE	:= to_stdlogicvector(x"08")(5 downto 0);
+	constant ITYPE_AND	: OPCODE_TYPE	:= to_stdlogicvector(x"0c")(5 downto 0);
+	constant ITYPE_OR	: OPCODE_TYPE	:= to_stdlogicvector(x"0d")(5 downto 0);
+	constant ITYPE_SUB	: OPCODE_TYPE	:= to_stdlogicvector(x"0a")(5 downto 0);
+	constant ITYPE_XOR	: OPCODE_TYPE	:= to_stdlogicvector(x"0e")(5 downto 0);
+	constant ITYPE_SGE	: OPCODE_TYPE	:= to_stdlogicvector(x"1d")(5 downto 0);
+	constant ITYPE_SLE	: OPCODE_TYPE	:= to_stdlogicvector(x"1c")(5 downto 0);
+	constant ITYPE_SLL	: OPCODE_TYPE	:= to_stdlogicvector(x"14")(5 downto 0);
+	constant ITYPE_SRL	: OPCODE_TYPE	:= to_stdlogicvector(x"16")(5 downto 0);
+	constant ITYPE_SNE	: OPCODE_TYPE	:= to_stdlogicvector(x"19")(5 downto 0);
+	constant ITYPE_SGT	: OPCODE_TYPE	:= to_stdlogicvector(x"1b")(5 downto 0);
 
-	constant MULT		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x01, OPCODE_SIZE));
+	constant MULT		: OPCODE_TYPE	:= to_stdlogicvector(x"01")(5 downto 0);
 
 		-- Jump [ OPCODE(6) - PCOFFSET(26) ]
-	constant JTYPE_J		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x02, OPCODE_SIZE));
-	constant JTYPE_JAL		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x03, OPCODE_SIZE));
+	constant JTYPE_J		: OPCODE_TYPE	:= to_stdlogicvector(x"02")(5 downto 0);
+	constant JTYPE_JAL		: OPCODE_TYPE	:= to_stdlogicvector(x"03")(5 downto 0);
 
 		-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
-	constant BTYPE_BEQZ		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x04, OPCODE_SIZE));
-	constant BTYPE_BNEZ		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x05, OPCODE_SIZE));
+	constant BTYPE_BEQZ		: OPCODE_TYPE	:= to_stdlogicvector(x"04")(5 downto 0);
+	constant BTYPE_BNEZ		: OPCODE_TYPE	:= to_stdlogicvector(x"05")(5 downto 0);
 
 		-- Memory [ OPCODE(6) - RDISPLACEMENT(5) - REG(5) - DISPLACEMENT(16) ]
-	constant MTYPE_LW		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x23, OPCODE_SIZE));
-	constant MTYPE_SW		: std_logic_vector(OPCODE_SIZE - 1 downto 0)	:= std_logic_vector(to_unsigned(0x2b, OPCODE_SIZE));
-end cuTypes;
+	constant MTYPE_LW		: OPCODE_TYPE	:= to_stdlogicvector(x"23")(5 downto 0);
+	constant MTYPE_SW		: OPCODE_TYPE	:= to_stdlogicvector(x"2b")(5 downto 0);
+
+	-- R-Type instruction -> OPCODE field
+	constant RTYPE : OPCODE_TYPE :=  "000000";
+
+subtype FUNC_TYPE is std_logic_vector(FUNC_SIZE - 1 downto 0);
+	-- R-Type instruction -> FUNC field
+	constant RTYPE_ADD	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"20");
+	constant RTYPE_AND	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"24");
+	constant RTYPE_OR	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"25");
+	constant RTYPE_SUB	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"22");
+	constant RTYPE_XOR	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"26");
+	constant RTYPE_SGE	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"2d");
+	constant RTYPE_SLE	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"2c");
+	constant RTYPE_SLL	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"04");
+	constant RTYPE_SRL	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"06");
+	constant RTYPE_SNE	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"29");
+	constant RTYPE_SGT	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"2b");
+	constant NOP		: FUNC_TYPE		:= "000" & to_stdlogicvector(x"00");
+
+end cu;

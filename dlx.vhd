@@ -40,7 +40,7 @@ architecture GIANLUCA of DLX is
 			Rst :	in  std_logic;
 			Addr :	in  std_logic_vector(I_SIZE - 1 downto 0);
 			Dout :	out std_logic_vector(I_SIZE - 1 downto 0)
-	    );
+		);
 	end component;
 
 	component PIPEREG is
@@ -168,6 +168,7 @@ architecture GIANLUCA of DLX is
 	signal WRF_MEM_BUS:		std_logic;
 	signal WRF_MEM_CTR:		std_logic;
 	signal WRF_BUSY:		std_logic;
+	signal CMP_EQZ:			std_logic;
 
 	signal MUXA_CTR:		std_logic;
 	signal MUXB_CTR:		std_logic;
@@ -183,6 +184,9 @@ architecture GIANLUCA of DLX is
 	signal PC:				std_logic_vector(N-1 downto 0);
 	signal IR:				std_logic_vector(N-1 downto 0);
 	signal NPC:				std_logic_vector(N-1 downto 0);
+	signal IPC:				std_logic_vector(N-1 downto 0);
+	signal JMP_PREDICT:		std_logic := '0';					-- '0' NOT TAKEN ; '1' TAKEN
+	signal NPC_REAL:		std_logic_vector(N-1 downto 0);
 
 	-- SECOND STAGE
 	signal IR_RF:			std_logic_vector(N-1 downto 0);
@@ -195,6 +199,8 @@ architecture GIANLUCA of DLX is
 	signal IM:				std_logic_vector(N-1 downto 0);
 	signal REGA:			std_logic_vector(N-1 downto 0);
 	signal REGB:			std_logic_vector(N-1 downto 0);
+	signal ZERO_OUT:		std_logic;
+	signal JMP_REAL:		std_logic;
 
 	-- THIRD STAGE
 	signal NPC_EX:			std_logic_vector(N-1 downto 0);
@@ -203,7 +209,6 @@ architecture GIANLUCA of DLX is
 	signal RD:				std_logic_vector(N-1 downto 0);
 	signal IM_EX:			std_logic_vector(N-1 downto 0);
 	signal RD_EX:			std_logic_vector(N-1 downto 0);
-	signal CMP_OUT:			std_logic_vector(N-1 downto 0);
 	signal MUXA_OUT:		std_logic_vector(N-1 downto 0);
 	signal MUXB_OUT:		std_logic_vector(N-1 downto 0);
 	signal ALU_OUT:			std_logic_vector(N-1 downto 0);
@@ -251,15 +256,19 @@ architecture GIANLUCA of DLX is
 		-- FIRST STAGE
 		--
 
-		MUXBOOT: MUX
-			generic map (N)
-			port map (MUXPC_OUT, ZERO_VECT, RESET, PC);
+--		MUXBOOT: MUX
+--			generic map (N)
+--			port map (MUXPC_OUT, ZERO_VECT, RESET, PC);
 
 		NPCEVAL: INCREMENTER
 			generic map (N)
-			port map (PC, NPC);
+			port map (PC, IPC);
 
-		ICACHE: IRAM
+		STALLER: LATCH
+			generic map (N)
+			port map (NPC_RF, PC_UPDATE, '0', PC);
+
+		ICACHE: ICACHE
 			port map(RESET, PC, IR);
 
 		--
@@ -284,6 +293,12 @@ architecture GIANLUCA of DLX is
 			generic map (16, 32)
 			port map (IM16, IM);
 
+		ZERO_OUT <= not or_reduce(REGA);
+
+		CMP: MUX
+			generic map (1)
+			port map (ZERO_OUT, not ZERO_OUT, CMP_EQZ, JMP_REAL);
+
 		--
 		-- THIRD STAGE
 		--
@@ -299,8 +314,6 @@ architecture GIANLUCA of DLX is
 		ALUI: ALU
 			generic map (N)
 			port map (ALU_FUNC, MUXA_OUT, MUXB_OUT, ALU_OUT)
-
-		CMP_OUT <= not or_reduce(REGA_EX);
 
 		--
 		-- FOURTH STAGE

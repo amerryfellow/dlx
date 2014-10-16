@@ -1,25 +1,32 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.myTypes.all;
+--use work.myTypes.all;
 use work.cu.all;
 --use work.all;
 
 entity CU_UP is
 	generic (
-		MICROCODE_MEM_SIZE				: integer := 57;	-- U Microcode Memory Size
-															-- Memory Size
-		OP_CODE_SIZE	: integer := 6;						-- Op Code Size
-		ALU_OPC_SIZE	: integer := 2;						-- ALU Op Code Word Size
-		CW_SIZE			: integer := 13						-- U Control Word Size
+		MICROCODE_MEM_SIZE : integer := 57;		-- U Microcode Memory Size
+--		OPCODE_SIZE :		integer := 6;		-- Op Code Size
+--		FUNC_SIZE :			integer := 11;		-- Op Code Size
+		ALU_OPC_SIZE :		integer := 2;		-- ALU Op Code Word Size
+		CW_SIZE :			integer := 13		-- U Control Word Size
 	);
 
 	port (
+		-- Inputs
 		Clk :				in std_logic;		-- Clock
 		Rst :				in std_logic;		-- Reset:Active-Low
-		OPCODE :			in std_logic_vector(OP_CODE_SIZE - 1 downto 0);
+		IR  :				in std_logic_vector(31 downto 0);
+		JMP_PREDICT :		in std_logic;		-- Jump Prediction
+		JMP_REAL :			in std_logic;		-- Jump real condition
+		ICACHE_STALL:			in std_logic;		-- The instruction cache is in stall
+		WRF_STALL:			in std_logic;		-- The WRF is busy
 
+		-- Outputs
 		MUXBOOT_CTR:		out std_logic;
+		PC_UPDATE:			out std_logic;
 
 		PIPEREG1_ENABLE:	out std_logic;
 		MUXRD_CTR:			out std_logic;
@@ -31,7 +38,6 @@ entity CU_UP is
 		WRF_RD_ENABLE:		out std_logic;
 		WRF_MEM_BUS:		out std_logic;
 		WRF_MEM_CTR:		out std_logic;
-		WRF_BUSY:			in std_logic;
 
 		PIPEREG2_ENABLE:	out std_logic;
 		MUXA_CTR:			out std_logic;
@@ -44,54 +50,28 @@ entity CU_UP is
 		MEMORY_RNOTW:		out std_logic;
 
 		PIPEREG4_ENABLE:	out std_logic;
-		MUXWB_CTR:			out std_logic;
+		MUXWB_CTR:			out std_logic
 	);
 end CU_UP;
 
-entity HW_CU is
-	port (
-				-- FIRST PIPE STAGE OUTPUTS
-		EN1		: out std_logic;					-- enables the register file and the pipeline registers
-		RF1		: out std_logic;					-- enables the read port 1 of the register file
-		RF2		: out std_logic;					-- enables the read port 2 of the register file
-		WF1		: out std_logic;					-- enables the write port of the register file
+architecture RTL of CU_UP is
+	signal LUTOUT : std_logic_vector(22 downto 0);
 
-		-- SECOND PIPE STAGE OUTPUTS
-		EN2		: out std_logic;					-- enables the pipe registers
-		S1		: out std_logic;					-- input selection of the first multiplexer
-		S2		: out std_logic;					-- input selection of the second multiplexer
-		ALU1	: out std_logic;					-- alu control bit
-		ALU2	: out std_logic;					-- alu control bit
+	signal PIPE1	: std_logic_vector(22 downto 0) := (others => '0');
+	signal PIPE2	: std_logic_vector(21 downto 0) := (others => '0');
+	signal PIPE3	: std_logic_vector(10 downto 0) := (others => '0');
+	signal PIPE4	: std_logic_vector(5 downto 0) := (others => '0');
+	signal PIPE5	: std_logic_vector(1 downto 0) := (others => '0');
 
-		-- THIRD PIPE STAGE OUTPUTS
-		EN3		: out std_logic;					-- enables the memory and the pipeline registers
-		RM		: out std_logic;					-- enables the read-out of the memory
-		WM		: out std_logic;					-- enables the write-in of the memory
-		S3		: out std_logic;					-- input selection of the multiplexer
+	signal PIPEREG12 : std_logic_vector(21 downto 0) := (others => '0');
+	signal PIPEREG23 : std_logic_vector(10 downto 0) := (others => '0');
+	signal PIPEREG34 : std_logic_vector(5 downto 0) := (others => '0');
+	signal PIPEREG45 : std_logic_vector(1 downto 0) := (others => '0');
 
-		-- INPUTS
-		IR		: in  std_logic_vector(31 downto 0);	-- Instruction Register
-		Clk		: in std_logic;
-		Rst		: in std_logic						-- Active Low
-	);
-end HW_CU;
+	signal OPCODE :		OPCODE_TYPE;
+	signal FUNC :		FUNC_TYPE;
 
-architecture HW_CU_RTL of HW_CU is
-	signal LUTOUT : std_logic_vector(12 downto 0);
-
-	signal PIPE1	: std_logic_vector(12 downto 0) := (others => '0');
-	signal PIPE2	: std_logic_vector(9 downto 0) := (others => '0');
-	signal PIPE3	: std_logic_vector(4 downto 0) := (others => '0');
-	signal PIPE3	: std_logic_vector(4 downto 0) := (others => '0');
-	signal PIPE3	: std_logic_vector(4 downto 0) := (others => '0');
-
-	signal PIPEREG12 : std_logic_vector(9 downto 0) := (others => '0');
-	signal PIPEREG23 : std_logic_vector(4 downto 0) := (others => '0');
-	signal PIPEREG23 : std_logic_vector(4 downto 0) := (others => '0');
-	signal PIPEREG23 : std_logic_vector(4 downto 0) := (others => '0');
-
-	signal OPCODE	: std_logic_vector(OPCODE_SIZE -1 downto 0) := (others => '0');
-	signal FUNC		: std_logic_vector(FUNC_SIZE -1 downto 0) := (others => '0');
+	signal JMP_PREDICT_DELAYED : std_logic;
 
 begin
 
@@ -101,26 +81,55 @@ begin
 	--
 	-- Link the outputs of the pipeline registers to the single control signals.
 	--
-	EN1		<= PIPE1(12);
-	RF1		<= PIPE1(11);
-	RF2		<= PIPE1(10);
-	EN2		<= PIPE2(9);
-	S1		<= PIPE2(8);
-	S2		<= PIPE2(7);
-	ALU1	<= PIPE2(6);
-	ALU2	<= PIPE2(5);
-	EN3		<= PIPE3(4);
-	RM		<= PIPE3(3);
-	WM		<= PIPE3(2);
-	S3		<= PIPE3(1);
-	WF1		<= PIPE3(0);
 
+	-- Pipelines
 	PIPE1		<= LUTOUT;
-	PIPEREG12	<= PIPE1(9 downto 0);
-	PIPEREG23	<= PIPE2(4 downto 0);
+	PIPEREG12	<= PIPE1(21 downto 0);
+	PIPEREG23	<= PIPE2(10 downto 0);
+	PIPEREG34	<= PIPE3(5 downto 0);
+	PIPEREG45	<= PIPE4(1 downto 0);
 
-	OPCODE	<= IR(31 downto 31-6);
-	FUNC	<= IR(10 downto 0);
+	--
+	-- Outputs
+	--
+
+	-- Stage IF
+	MUXBOOT_CTR			<= PIPE1(22);
+
+	-- STAGE ID
+	PIPEREG1_ENABLE		<= PIPE2(21);
+	MUXRD_CTR			<= PIPE2(20);
+	WRF_ENABLE			<= PIPE2(19);
+	WRF_CALL			<= PIPE2(18);
+	WRF_RET				<= PIPE2(17);
+	WRF_RS1_ENABLE		<= PIPE2(16);
+	WRF_RS2_ENABLE		<= PIPE2(15);
+	WRF_RD_ENABLE		<= PIPE2(14);
+	WRF_MEM_BUS			<= PIPE2(13);
+	WRF_MEM_CTR			<= PIPE2(12);
+
+	--Stage EXE
+	PIPEREG2_ENABLE		<= PIPE3(10);
+	MUXA_CTR			<= PIPE3(9);
+	MUXB_CTR			<= PIPE3(8);
+	ALU_FUNC			<= PIPE3(7 downto 6);
+
+	-- Stage MEM
+	PIPEREG3_ENABLE		<= PIPE4(5);
+	MUXC_CTR			<= PIPE4(4);
+	MEMORY_ENABLE		<= PIPE4(3);
+	MEMORY_RNOTW		<= PIPE4(2);
+
+	-- Stage WB
+	PIPEREG4_ENABLE		<= PIPE5(1);
+	MUXWB_CTR			<= PIPE5(0);
+
+	--
+	-- Inputs
+	--
+
+	OPCODE	<= IR(31 downto 31-OPCODE_SIZE+1);
+	FUNC	<= IR(FUNC_SIZE-1 downto 0);
 
 	--
 	-- Pipeline management process
@@ -130,6 +139,8 @@ begin
 
 	PROCESS_UPPIPES: process(clk,rst)
 	begin
+		JMP_PREDICT_DELAYED <= JMP_PREDICT;
+
 		if rst = '0' then
 			PIPE2 <= (others => '0');
 			PIPE3 <= (others => '0');
@@ -137,8 +148,24 @@ begin
 			PIPE5 <= (others => '0');
 
 		elsif clk'event and clk = '1' then
-			PIPE2 <= PIPEREG12;
-			PIPE3 <= PIPEREG23;
+			-- Bubble propagation in stage 2 when
+			-- 1) Mispredicted branch
+			-- 2) Instruction cache stall
+
+			if (JMP_REAL xor JMP_PREDICT_DELAYED) = '1' or ICACHE_STALL = '1' then
+				PIPE2 <= (others => '0');
+			else
+				PIPE2 <= PIPEREG12;
+			end if;
+
+			-- Bubble propagation in stage 3 when
+			-- 1) Windowed Register File stall
+			if WRF_STALL = '1' then
+				PIPE3 <= PIPEREG23;
+			else
+				PIPE3 <= PIPEREG23;
+			end if;
+
 			PIPE4 <= PIPEREG34;
 			PIPE5 <= PIPEREG45;
 		end if;
@@ -153,58 +180,57 @@ begin
 	PROCESS_LUT: process(clk,rst)
 	begin
 		if rst = '0' then
-			LUTOUT <= "000" & "00000" & "00000";
+			LUTOUT <= "0" & "00000000000" & "0000" & "00000" & "00";
 
 		elsif clk'event and clk = '1' then
 
-	-- EN1 | RF1 | RF2 |||||| EN2 | S1 | S2 | ALU1 | ALU2 |||||| EN3 | RM | WM | S3 | WF1
 			case (OPCODE) is
 
 				-- Register - Register [ OPCODE(6) - RS1(5) - RS2(5) - RD(5) - FUNC(11) ]
 				when RTYPE =>
 					case (FUNC) is
-						when RTYPE_ADD	=> LUTOUT <= "111" & "10100" & "10001";
-						when RTYPE_AND	=> LUTOUT <= "111" & "10100" & "10001";
-						when RTYPE_OR	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SUB	=> LUTOUT <= "111" & "10101" & "10001";
-						when RTYPE_XOR	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SGE	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SLE	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SLL	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SRL	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SNE	=> LUTOUT <= "111" & "10111" & "10001";
-						when RTYPE_SGT	=> LUTOUT <= "111" & "10111" & "10001";
-						when NOP		=> LUTOUT <= "000" & "00000" & "00000";
+						when RTYPE_ADD	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_AND	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_OR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SUB	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_XOR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SGE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SLE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SLL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SRL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SNE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when RTYPE_SGT	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when NOP		=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
 
 						when others		=> report "I don't know how to handle this Rtype function!"; null;
 					end case;
 
-				when MULT				=> LUTOUT <= "111" & "10111" & "10001";
+				when MULT				=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
 
 				-- Jump [ OPCODE(6) - PCOFFSET(26) ]
-				when JTYPE_J			=> LUTOUT <= "111" & "10111" & "10001";
-				when JTYPE_JAL			=> LUTOUT <= "111" & "10111" & "10001";
+				when JTYPE_J			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when JTYPE_JAL			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
 
 				-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
-				when BTYPE_BEQZ			=> LUTOUT <= "111" & "10111" & "10001";
-				when BTYPE_BNEZ			=> LUTOUT <= "111" & "10111" & "10001";
+				when BTYPE_BEQZ			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when BTYPE_BNEZ			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
 
 				-- Memory [ OPCODE(6) - RDISPLACEMENT(5) - REG(5) - DISPLACEMENT(16) ]
-				when MTYPE_LW			=> LUTOUT <= "111" & "10111" & "10001";
-				when MTYPE_SW			=> LUTOUT <= "111" & "10111" & "10001";
+				when MTYPE_LW			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when MTYPE_SW			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
 
 				-- Immediate [ OPCODE(6) - RS1(5) - RD(5) - IMMEDIATE(16) ]
-				when ITYPE_ADD			=> LUTOUT <= "111" & "10100" & "10001";
-				when ITYPE_AND			=> LUTOUT <= "111" & "10100" & "10001";
-				when ITYPE_OR			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SUB			=> LUTOUT <= "111" & "10101" & "10001";
-				when ITYPE_XOR			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SGE			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SLE			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SLL			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SRL			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SNE			=> LUTOUT <= "111" & "10111" & "10001";
-				when ITYPE_SGT			=> LUTOUT <= "111" & "10111" & "10001";
+				when ITYPE_ADD			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_AND			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_OR			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SUB			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_XOR			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SGE			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SLE			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SLL			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SRL			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SNE			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_SGT			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
 
 				-- Eh boh!
 				when others =>
@@ -213,5 +239,21 @@ begin
 			end case;
 		end if;
 	end process;
-end HW_CU_RTL;
+
+	--
+	-- Stall Unit
+	--
+	-- Implements the stall logic
+	--
+
+	PROCESS_STALL: process(clk,rst)
+	begin
+		if clk'event and clk = '1' and rst = '0' then
+--			if ICACHE_STALL = '1' or WRF_STALL = '1' or DCACHE_STALL = '1' then
+			if ICACHE_STALL = '1' or WRF_STALL = '1' then
+				PC_UPDATE <= '0';
+			end if;
+		end if;
+	end process;
+end RTL;
 

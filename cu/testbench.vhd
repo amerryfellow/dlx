@@ -2,182 +2,97 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.std_logic_arith.all;
-use work.myTypes.all;
+use work.cu.all;
 
 entity cu_test is
-end cu_test;
+	end cu_test;
 
 architecture TEST of cu_test is
-    component CU_FSM
-       port (
-              -- FIRST PIPE STAGE OUTPUTS
-              EN1    : out std_logic;               -- enables the register file and the pipeline registers
-              RF1    : out std_logic;               -- enables the read port 1 of the register file
-              RF2    : out std_logic;               -- enables the read port 2 of the register file
-              WF1    : out std_logic;               -- enables the write port of the register file
-              -- SECOND PIPE STAGE OUTPUTS
-              EN2    : out std_logic;               -- enables the pipe registers
-              S1     : out std_logic;               -- input selection of the first multiplexer
-              S2     : out std_logic;               -- input selection of the second multiplexer
-              ALU1   : out std_logic;               -- alu control bit
-              ALU2   : out std_logic;               -- alu control bit
-              -- THIRD PIPE STAGE OUTPUTS
-              EN3    : out std_logic;               -- enables the memory and the pipeline registers
-              RM     : out std_logic;               -- enables the read-out of the memory
-              WM     : out std_logic;               -- enables the write-in of the memory
-              S3     : out std_logic;               -- input selection of the multiplexer
-              -- INPUTS
-              OPCODE : in  std_logic_vector(OP_CODE_SIZE - 1 downto 0);
-              FUNC   : in  std_logic_vector(FUNC_SIZE - 1 downto 0);              
-              Clk : in std_logic;
-              Rst : in std_logic);                  -- Active Low
-    end component;
+	component CU_UP is
+		port (
+		-- Inputs
+				Clk :				in std_logic;		-- Clock
+				Rst :				in std_logic;		-- Reset:Active-Low
+				IR  :				in std_logic_vector(31 downto 0);
+				JMP_PREDICT :		in std_logic;		-- Jump Prediction
+				JMP_REAL :			in std_logic;		-- Jump real condition
+				ICACHE_STALL:			in std_logic;		-- The WRF is busy
+				WRF_STALL:			in std_logic;		-- The WRF is busy
 
-    signal Clock: std_logic := '0';
-    signal Reset: std_logic := '1';
+		-- Outputs
+				MUXBOOT_CTR:		out std_logic;
 
-    signal cu_opcode_i: std_logic_vector(OP_CODE_SIZE - 1 downto 0) := (others => '0');
-    signal cu_func_i: std_logic_vector(FUNC_SIZE - 1 downto 0) := (others => '0');
-    signal EN1_i, RF1_i, RF2_i, WF1_i, EN2_i, S1_i, S2_i, ALU1_i, ALU2_i, EN3_i, RM_i, WM_i, S3_i: std_logic := '0';
+				PIPEREG1_ENABLE:	out std_logic;
+				MUXRD_CTR:			out std_logic;
+				WRF_ENABLE:			out std_logic;
+				WRF_CALL:			out std_logic;
+				WRF_RET:			out std_logic;
+				WRF_RS1_ENABLE:		out std_logic;
+				WRF_RS2_ENABLE:		out std_logic;
+				WRF_RD_ENABLE:		out std_logic;
+				WRF_MEM_BUS:		out std_logic;
+				WRF_MEM_CTR:		out std_logic;
 
+				PIPEREG2_ENABLE:	out std_logic;
+				MUXA_CTR:			out std_logic;
+				MUXB_CTR:			out std_logic;
+				ALU_FUNC:			out std_logic_vector(1 downto 0);
+
+				PIPEREG3_ENABLE:	out std_logic;
+				MUXC_CTR:			out std_logic;
+				MEMORY_ENABLE:		out std_logic;
+				MEMORY_RNOTW:		out std_logic;
+
+				PIPEREG4_ENABLE:	out std_logic;
+				MUXWB_CTR:			out std_logic
+	);
+	end component;
+
+		-- Inputs
+	signal Clk :				 std_logic := '0';		-- Clock
+	signal Rst :				 std_logic;		-- Reset:Active-Low
+	signal IR  :				 std_logic_vector(31 downto 0);
+	signal JMP_PREDICT :		 std_logic;		-- Jump Prediction
+	signal JMP_REAL :			 std_logic;		-- Jump real condition
+	signal ICACHE_STALL:		 std_logic;		-- Instruction cache stall
+	signal WRF_STALL:			 std_logic;		-- The WRF is busy
+
+		-- Outputs
+	signal MUXBOOT_CTR:		 std_logic;
+	signal PIPEREG1_ENABLE:	 std_logic;
+	signal MUXRD_CTR:			 std_logic;
+	signal WRF_ENABLE:			 std_logic;
+	signal WRF_CALL:			 std_logic;
+	signal WRF_RET:			 std_logic;
+	signal WRF_RS1_ENABLE:		 std_logic;
+	signal WRF_RS2_ENABLE:		 std_logic;
+	signal WRF_RD_ENABLE:		 std_logic;
+	signal WRF_MEM_BUS:		 std_logic;
+	signal WRF_MEM_CTR:		 std_logic;
+	signal PIPEREG2_ENABLE:	 std_logic;
+	signal MUXA_CTR:			 std_logic;
+	signal MUXB_CTR:			 std_logic;
+	signal ALU_FUNC:			 std_logic_vector(1 downto 0);
+	signal PIPEREG3_ENABLE:	 std_logic;
+	signal MUXC_CTR:			 std_logic;
+	signal MEMORY_ENABLE:		 std_logic;
+	signal MEMORY_RNOTW:		 std_logic;
+	signal PIPEREG4_ENABLE:	 std_logic;
+	signal MUXWB_CTR:			 std_logic;
 begin
 
-        -- instance of DLX
-       dut: CU_FSM
-       port map (
-                 -- OUTPUTS
-                 EN1    => EN1_i,
-                 RF1    => RF1_i,
-                 RF2    => RF2_i,
-                 WF1    => WF1_i,
-                 EN2    => EN2_i,
-                 S1     => S1_i,
-                 S2     => S2_i,
-                 ALU1   => ALU1_i,
-                 ALU2   => ALU2_i,
-                 EN3    => EN3_i,
-                 RM     => RM_i,
-                 WM     => WM_i,
-                 S3     => S3_i,
-                 -- INPUTS
-                 OPCODE => cu_opcode_i,
-                 FUNC   => cu_func_i,
-                 Clk    => Clock,
-                 Rst    => Reset
-               );
+	-- instance of DLX
+	dut: CU_UP
+	port map (Clk, Rst, IR, JMP_PREDICT, JMP_REAL, ICACHE_STALL, WRF_STALL, MUXBOOT_CTR, PIPEREG1_ENABLE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, WRF_MEM_BUS, WRF_MEM_CTR, PIPEREG2_ENABLE, MUXA_CTR, MUXB_CTR ,ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, PIPEREG4_ENABLE ,MUXWB_CTR);
 
-        Clock <= not Clock after 1 ns;
-	Reset <= '0', '1' after 5 ns;
+	Clk <= not Clk after 10 ns;
+	Rst <= '0', '1' after 5 ns;
 
+	CONTROL: process(Clk)
+	begin
 
-        CONTROL: process
-        begin
+		IR <= ITYPE_ADD & "00000000000000000000000000";
 
-        wait for 5 ns;  ----- be careful! the wait statement is ok in test
-                        ----- benches, but do not use it in normal processes!
-
-		-- RTYPE
-
-        cu_opcode_i <= RTYPE;
-
-		-- FUNCTIONS
-
-        cu_func_i <= RTYPE_ADD;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= RTYPE_SUB;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= RTYPE_AND;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= RTYPE_OR;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-		-- ITYPE
-        cu_opcode_i <= ITYPE;
-
-		-- FUNCTIONS
-
-        cu_func_i <= ITYPE_ADDI1;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_SUBI1;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_ANDI1;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_ORI1;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_ADDI2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_SUBI2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_ANDI2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_ORI2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_MOV;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_S_REG1;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_S_REG2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_S_MEM2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_L_MEM1;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        cu_func_i <= ITYPE_L_MEM2;
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-        wait until Clock'event and Clock = '1';
-
-        wait;
-        end process;
+	end process;
 
 end test;

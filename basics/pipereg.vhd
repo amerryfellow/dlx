@@ -20,23 +20,22 @@ entity PIPEREG is
 end PIPEREG;
 
 architecture DYN of PIPEREG is
-	component REGISTER_FD is
+	component LATCH is
 		generic (
-			N: integer:= numBit;
+			N: integer:= NSUMG
 		);
-
-	port (
-			CLK:		in	std_logic;							-- Clock
-			RESET:		in	std_logic;							-- Reset
-			DIN:		in	std_logic_vector(N-1 downto 0);		-- Data in
-			DOUT:		out	std_logic_vector(N-1 downto 0)		-- Data out
+		port (
+			DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+			EN:		in std_logic;
+			RESET:	in std_logic;
+			DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
 		);
 	end component;
 
 begin
 	G : for j in 0 to REGS-1 generate
-		REG : REGISTER_FD port map
-			(CLK, RESET, I(j), O(j));
+		L : LATCH
+			generic map( N )
+			port map (I(j), CLK, RESET, O(j));
 	end generate;
 end DYN;
-

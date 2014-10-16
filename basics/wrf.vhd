@@ -102,7 +102,10 @@ begin
 		variable index: integer := 0;
 	begin
 		-- Synchronous
-		if CLK'event and CLK = '1' then
+		-- if CLK'event and CLK = '1' then
+
+		-- Synchronous on double fronts
+		if CLK'event then
 
 			-- The memory is not busy! I may handle CALLs, RETs or WRs.
 			if MEMBUSY = '0' then
@@ -228,7 +231,7 @@ begin
 	PROCESS_RD1: process(CLK)
 	begin
 		-- Synchronous
-		if CLK'event and CLK = '1' then
+		if CLK'event then
 
 			-- Is RESET active?
 			if (RESET = '1') then
@@ -255,7 +258,7 @@ begin
 	PROCESS_RD2: process(CLK)
 	begin
 		-- Synchronous
-		if CLK'event and CLK='1' then
+		if CLK'event then
 
 			-- Is RESET active?
 			if (RESET = '1') then 
