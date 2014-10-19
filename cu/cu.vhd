@@ -16,8 +16,8 @@ entity CU_UP is
 
 	port (
 		-- Inputs
-		Clk :				in std_logic;		-- Clock
-		Rst :				in std_logic;		-- Reset:Active-Low
+		CLK :				in std_logic;		-- Clock
+		RST :				in std_logic;		-- Reset:Active-High
 		IR  :				in std_logic_vector(31 downto 0);
 		JMP_PREDICT :		in std_logic;		-- Jump Prediction
 		JMP_REAL :			in std_logic;		-- Jump real condition
@@ -137,11 +137,11 @@ begin
 	-- Updates the values of the internal signals and the pipeline registers
 	--
 
-	PROCESS_UPPIPES: process(clk,rst)
+	PROCESS_UPPIPES: process(CLK, RST)
 	begin
 		JMP_PREDICT_DELAYED <= JMP_PREDICT;
 
-		if rst = '0' then
+		if RST = '1' then
 			PIPE2 <= (others => '0');
 			PIPE3 <= (others => '0');
 			PIPE4 <= (others => '0');
@@ -161,7 +161,7 @@ begin
 			-- Bubble propagation in stage 3 when
 			-- 1) Windowed Register File stall
 			if WRF_STALL = '1' then
-				PIPE3 <= PIPEREG23;
+				PIPE3 <= (others => '0');
 			else
 				PIPE3 <= PIPEREG23;
 			end if;
@@ -177,9 +177,9 @@ begin
 	-- Implements the instruction decode logic
 	--
 
-	PROCESS_LUT: process(clk,rst)
+	PROCESS_LUT: process(clk,RST)
 	begin
-		if rst = '0' then
+		if RST = '1' then
 			LUTOUT <= "0" & "00000000000" & "0000" & "00000" & "00";
 
 		elsif clk'event and clk = '1' then
@@ -188,19 +188,32 @@ begin
 
 				-- Register - Register [ OPCODE(6) - RS1(5) - RS2(5) - RD(5) - FUNC(11) ]
 				when RTYPE =>
+					report "RTYPE, Bitch!";
 					case (FUNC) is
-						when RTYPE_ADD	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_AND	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_OR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SUB	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_XOR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SGE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SLE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SLL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SRL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SNE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_SGT	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when NOP		=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_ADD	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_AND	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_OR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SUB	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_XOR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SGE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SLE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SLL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SRL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SNE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SGT	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+--						when NOP		=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+						when NOP		=> LUTOUT <= "1" & "00001000000" & "01000" & "0000" & "00";
+						when RTYPE_ADD	=> LUTOUT <= "1" & "00001000000" & "01000" & "0000" & "01";
+						when RTYPE_AND	=> LUTOUT <= "1" & "00001000000" & "01000" & "0000" & "10";
+						when RTYPE_OR	=> LUTOUT <= "1" & "00001000000" & "01000" & "0000" & "11";
+						when RTYPE_SUB	=> LUTOUT <= "1" & "00001000000" & "01000" & "0001" & "00";
+						when RTYPE_XOR	=> LUTOUT <= "1" & "00001000000" & "01000" & "0001" & "01";
+						when RTYPE_SGE	=> LUTOUT <= "1" & "00001000000" & "01000" & "0001" & "10";
+						when RTYPE_SLE	=> LUTOUT <= "1" & "00001000000" & "01000" & "0001" & "11";
+						when RTYPE_SLL	=> LUTOUT <= "1" & "00001000000" & "01000" & "0010" & "00";
+						when RTYPE_SRL	=> LUTOUT <= "1" & "00001000000" & "01000" & "0010" & "01";
+						when RTYPE_SNE	=> LUTOUT <= "1" & "00001000000" & "01000" & "0010" & "10";
+						when RTYPE_SGT	=> LUTOUT <= "1" & "00001000000" & "01000" & "0010" & "11";
 
 						when others		=> report "I don't know how to handle this Rtype function!"; null;
 					end case;
@@ -246,9 +259,9 @@ begin
 	-- Implements the stall logic
 	--
 
-	PROCESS_STALL: process(clk,rst)
+	PROCESS_STALL: process(CLK, RST)
 	begin
-		if clk'event and clk = '1' and rst = '0' then
+		if clk'event and clk = '1' and RST = '1' then
 --			if ICACHE_STALL = '1' or WRF_STALL = '1' or DCACHE_STALL = '1' then
 			if ICACHE_STALL = '1' or WRF_STALL = '1' then
 				PC_UPDATE <= '0';
