@@ -42,7 +42,7 @@ begin
 		end if;
 	end process;
 
-	main: process(state_reg, pc_addr)
+	main: process(state_reg, pc_addr, iram_ready)
 			variable HIT		 		: std_logic:='0';
 			variable int_mem			: std_logic_vector(2*Instr_size - 1 downto 0);
 			variable reference_line		: natural range 0 to 2**LFU_NUM_BIT;
@@ -67,38 +67,33 @@ begin
 							first_access <= '1';
 						end loop;
 					end loop;
-					next_state <= STATE_IDLE;
+					next_state <= STATE_COMP_TAG;
 
 				when STATE_IDLE =>
 					next_state <= STATE_MISS;
 
 				when STATE_MISS =>
-					next_state <= STATE_MISS_1;
-					NOP_OUT <= '1';
-					read_issue <= '1';
-
-				when STATE_MISS_1 =>
-					next_state <= STATE_MISS_2;
-
-				when STATE_MISS_2 =>
-					reference_line := line_to_evict(PC_ADDR,ICACHE);
-					ICACHE(conv_offset(PC_ADDR))(reference_line).tag_in <= PC_ADDR(instr_size - 1 downto TAG_OFFSET)& '1';
-					ICACHE(conv_offset(PC_ADDR))(reference_line).LFU_COUNT
+					if iram_ready = '1' then
+						reference_line := line_to_evict(PC_ADDR,ICACHE);
+						ICACHE(conv_offset(PC_ADDR))(reference_line).tag_in <= PC_ADDR(instr_size - 1 downto TAG_OFFSET)& '1';
+						ICACHE(conv_offset(PC_ADDR))(reference_line).LFU_COUNT
 																	<= ICACHE(conv_offset(PC_ADDR))(reference_line).LFU_COUNT +1;
-					for i in 0 to IC_Num_of_word - 1 loop
-						ICACHE(conv_offset(PC_ADDR))(reference_line).memory_set(i)
-							<= instr_from_mem (((i+1)*instr_size - 1) downto i*instr_size);
-					end loop;
-					index := conv_integer(unsigned(PC_ADDR(INDEX_OFFSET - 1 downto 0)));
-					int_out_instr <= instr_from_mem (((index+1)*instr_size - 1) downto index*instr_size);
-					next_state <= STATE_COMP_TAG;
-					nop_out <= '0';
-					read_issue <= '0';
+						for i in 0 to IC_Num_of_word - 1 loop
+							ICACHE(conv_offset(PC_ADDR))(reference_line).memory_set(i)
+								<= instr_from_mem (((i+1)*instr_size - 1) downto i*instr_size);
+						end loop;
+						index := conv_integer(unsigned(PC_ADDR(INDEX_OFFSET - 1 downto 0)));
+						int_out_instr <= instr_from_mem (((index+1)*instr_size - 1) downto index*instr_size);
+						next_state <= STATE_COMP_TAG;
+						nop_out <= '0';
+						read_issue <= '0';
+					end if;
 
 				-- Fetch instruction and print it if HIT
 				when STATE_COMP_TAG =>
 					if(ENABLE = '1') then
 						nop_out <= '1';
+
 						-- Look in the ICACHE
 						for i in 0 to IC_Num_lines - 1 loop
 							HIT := comp_tag(
@@ -108,6 +103,8 @@ begin
 
 							-- HIT!
 							if (HIT = '1') then
+
+								-- Is the entry valid?
 								if(ICACHE(conv_offset(PC_ADDR))(i).tag_in(0) = '1') then
 									INDEX := i;
 
@@ -130,13 +127,13 @@ begin
 									count_miss := 0;
 									exit;
 
-								-- Not valid
+								-- The entry is not valid. Count as miss
 								else
 									count_miss := count_miss + 1;
 								end if;
 
-							-- Miss
-							elsif (HIT ='0') then
+							-- Miss :(
+							else
 								count_miss := count_miss + 1;
 							end if;
 
@@ -144,6 +141,7 @@ begin
 
 						-- Miss?
 						if (count_miss = IC_Num_lines) then
+							read_issue <= '1';
 							next_state <= STATE_MISS;
 						end if;
 

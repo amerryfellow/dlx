@@ -52,28 +52,20 @@ begin  -- IRam_Bhe
 		end if;
 	end process FILL_MEM_P;
 
-	state_updater : process(clk,rst)
-		variable state: state_type;
+	state_updater : process
 	begin
+		wait until clk'event and clk = '1';
+		valid <= '0';
+
 		if rst = '1' then
 			valid <= '0';
-			state := STATE_IDLE;
-		elsif en_iram = '0' then
-			valid <= '0';
-		elsif clk'event and clk = '0' then
-			if( state = STATE_IDLE ) then
-				report "State: Idle";
-				state := STATE_OUT;
-				valid <= '0';
-			else
-				report "State: Out";
-				valid <= '1';
-				idout <=
-					conv_std_logic_vector(IRAM_mem(conv_integer(unsigned(Addr))+1),I_SIZE) &
-					conv_std_logic_vector(IRAM_mem(conv_integer(unsigned(Addr))),I_SIZE);
-
-				state := STATE_IDLE;
-			end if;
+		elsif en_iram = '1' then
+			wait until clk'event and clk = '1';
+			wait until clk'event and clk = '1';
+			valid <= '1';
+			idout <=
+				conv_std_logic_vector(IRAM_mem(conv_integer(unsigned(Addr))+1),I_SIZE) &
+				conv_std_logic_vector(IRAM_mem(conv_integer(unsigned(Addr))),I_SIZE);
 		end if;
 	end process;
 
