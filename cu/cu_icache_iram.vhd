@@ -11,42 +11,43 @@ entity cu_test is
 architecture TEST of cu_test is
 	component CU_UP is
 		port (
-		-- Inputs
-				Clk :				in std_logic;		-- Clock
-				Rst :				in std_logic;		-- Reset:Active-Low
-				IR  :				in std_logic_vector(31 downto 0);
-				JMP_PREDICT :		in std_logic;		-- Jump Prediction
-				JMP_REAL :			in std_logic;		-- Jump real condition
-				ICACHE_STALL:			in std_logic;		-- The WRF is busy
-				WRF_STALL:			in std_logic;		-- The WRF is busy
+			-- Inputs
+			CLK :				in std_logic;		-- Clock
+			RST :				in std_logic;		-- Reset:Active-High
+			IR  :				in std_logic_vector(31 downto 0);
+			JMP_PREDICT :		in std_logic;		-- Jump Prediction
+			JMP_REAL :			in std_logic;		-- Jump real condition
+			ICACHE_STALL:			in std_logic;		-- The instruction cache is in stall
+			WRF_STALL:			in std_logic;		-- The WRF is busy
 
-		-- Outputs
-				MUXBOOT_CTR:		out std_logic;
+			-- Outputs
+			MUXBOOT_CTR:		out std_logic;
+			PC_UPDATE:			out std_logic;
 
-				PIPEREG1_ENABLE:	out std_logic;
-				MUXRD_CTR:			out std_logic;
-				WRF_ENABLE:			out std_logic;
-				WRF_CALL:			out std_logic;
-				WRF_RET:			out std_logic;
-				WRF_RS1_ENABLE:		out std_logic;
-				WRF_RS2_ENABLE:		out std_logic;
-				WRF_RD_ENABLE:		out std_logic;
-				WRF_MEM_BUS:		out std_logic;
-				WRF_MEM_CTR:		out std_logic;
+			PIPEREG1_ENABLE:	out std_logic;
+			MUXRD_CTR:			out std_logic;
+			WRF_ENABLE:			out std_logic;
+			WRF_CALL:			out std_logic;
+			WRF_RET:			out std_logic;
+			WRF_RS1_ENABLE:		out std_logic;
+			WRF_RS2_ENABLE:		out std_logic;
+			WRF_RD_ENABLE:		out std_logic;
+			WRF_MEM_BUS:		out std_logic;
+			WRF_MEM_CTR:		out std_logic;
 
-				PIPEREG2_ENABLE:	out std_logic;
-				MUXA_CTR:			out std_logic;
-				MUXB_CTR:			out std_logic;
-				ALU_FUNC:			out std_logic_vector(1 downto 0);
+			PIPEREG2_ENABLE:	out std_logic;
+			MUXA_CTR:			out std_logic;
+			MUXB_CTR:			out std_logic;
+			ALU_FUNC:			out std_logic_vector(1 downto 0);
 
-				PIPEREG3_ENABLE:	out std_logic;
-				MUXC_CTR:			out std_logic;
-				MEMORY_ENABLE:		out std_logic;
-				MEMORY_RNOTW:		out std_logic;
+			PIPEREG3_ENABLE:	out std_logic;
+			MUXC_CTR:			out std_logic;
+			MEMORY_ENABLE:		out std_logic;
+			MEMORY_RNOTW:		out std_logic;
 
-				PIPEREG4_ENABLE:	out std_logic;
-				MUXWB_CTR:			out std_logic
-	);
+			PIPEREG4_ENABLE:	out std_logic;
+			MUXWB_CTR:			out std_logic
+		);
 	end component;
 
 	component ROCACHE is
@@ -79,6 +80,17 @@ architecture TEST of cu_test is
 		);
 	end component;
 
+	component INCREMENTER is
+		generic (
+			N: integer			:= 32
+		);
+
+		port (
+			A: in std_logic_vector (N-1 downto 0);
+			Y: out std_logic_vector(N-1 downto 0)
+		);
+	end component;
+
 	component LATCH is
 		generic (
 					N: integer := 1
@@ -91,7 +103,19 @@ architecture TEST of cu_test is
 			);
 	end component;
 
-	signal PC, IR, RAM_ADDRESS				: std_logic_vector(Instr_size-1 downto 0):=X"00000000" ;
+	component REGISTER_FD is
+		generic (
+			N: integer := 32
+		);
+		port (
+			DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+			CLK:	in	std_logic;							-- Clock
+			RESET:	in	std_logic;							-- Reset
+			DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
+		);
+	end component;
+
+	signal IPC, PC, NPC, IR, RAM_ADDRESS	: std_logic_vector(Instr_size-1 downto 0):=X"00000000" ;
 	signal RAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0);
 	signal ICACHE_STALL						: std_logic := '1';
 	signal ENABLE							: std_logic:= '0';
@@ -106,6 +130,7 @@ architecture TEST of cu_test is
 
 		-- Outputs
 	signal MUXBOOT_CTR:		 std_logic;
+	signal PC_UPDATE:			 std_logic;
 	signal PIPEREG1_ENABLE:	 std_logic;
 	signal MUXRD_CTR:			 std_logic;
 	signal WRF_ENABLE:			 std_logic;
@@ -130,39 +155,52 @@ begin
 
 	-- Control Unit
 	dut: CU_UP
-	port map (CLK, RST, IR, JMP_PREDICT, JMP_REAL, ICACHE_STALL, WRF_STALL, MUXBOOT_CTR, PIPEREG1_ENABLE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, WRF_MEM_BUS, WRF_MEM_CTR, PIPEREG2_ENABLE, MUXA_CTR, MUXB_CTR ,ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, PIPEREG4_ENABLE, MUXWB_CTR);
+	port map (CLK, RST, IR, JMP_PREDICT, JMP_REAL, ICACHE_STALL, WRF_STALL, MUXBOOT_CTR, PC_UPDATE, PIPEREG1_ENABLE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, WRF_MEM_BUS, WRF_MEM_CTR, PIPEREG2_ENABLE, MUXA_CTR, MUXB_CTR ,ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, PIPEREG4_ENABLE, MUXWB_CTR);
 
 	-- IRAM
 	IRAM : ROMEM
-		port map (CLK, RST, RAM_ADDRESS, ENABLE, RAM_READY, RAM_DATA);
+		port map (CLK, RST, RAM_ADDRESS, RAM_ISSUE, RAM_READY, RAM_DATA);
 
 	ICACHE : ROCACHE
 		port map (CLK, RST, ENABLE, PC, IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
 
-	--  GO!
+	NPCEVAL: INCREMENTER
+		generic map (32)
+		port map (PC, IPC);
 
+	STALLER: LATCH
+		generic map (32)
+		port map (NPC, PC_UPDATE, RST, PC);
+
+	FAKEPIPEREG: REGISTER_FD
+--	FAKEPIPEREG: LATCH
+		generic map (32)
+		port map(IPC, CLK, RST, NPC);
+
+	--  GO!
 
 	ENABLE <= '1';--,'0' after 20 ns,'1' after 30 ns,'0' after 40 ns,'1' after 50 ns,'0' after 60 ns, '1' after 70 ns;
 	CLK <= not CLK after 10 ns;
 	RST <= '1', '0' after 5 ns;
+	WRF_STALL <= '0';
 
-	PC_GENERATOR : process
-	begin
-		pc <= X"00000002";
-		wait until ICACHE_STALL = '0' and clk'event and clk='1';
-		pc <= X"00000003";
-		wait until ICACHE_STALL = '0' and clk'event and clk='1';
-		pc <= X"00000004";
-		wait until ICACHE_STALL = '0' and clk'event and clk='1';
-		pc <= X"00000005";
-		wait until ICACHE_STALL = '0' and clk'event and clk='1';
-		pc <= X"00000006";
-		wait until ICACHE_STALL = '0' and clk'event and clk='1';
-		pc <= X"00000004";
-		wait until ICACHE_STALL = '0' and clk'event and clk='1';
-		pc <= X"00000002";
-		wait for 20 ns;
-	end process PC_GENERATOR;
+--	PC_GENERATOR : process
+--	begin
+--		pc <= X"00000002";
+--		wait until ICACHE_STALL = '0' and clk'event and clk='1';
+--		pc <= X"00000003";
+--		wait until ICACHE_STALL = '0' and clk'event and clk='1';
+--		pc <= X"00000004";
+--		wait until ICACHE_STALL = '0' and clk'event and clk='1';
+--		pc <= X"00000005";
+--		wait until ICACHE_STALL = '0' and clk'event and clk='1';
+--		pc <= X"00000006";
+--		wait until ICACHE_STALL = '0' and clk'event and clk='1';
+--		pc <= X"00000004";
+--		wait until ICACHE_STALL = '0' and clk'event and clk='1';
+--		pc <= X"00000002";
+--		wait for 20 ns;
+--	end process PC_GENERATOR;
 
 --	MMU_G			: MMU port map(CLK,reset,READ_M,read_addr,instr_from_ir,mem_busy,IR_EN,addr_to_ir,instr_from_m);
 

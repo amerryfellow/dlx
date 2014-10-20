@@ -261,10 +261,11 @@ begin
 
 	PROCESS_STALL: process(CLK, RST)
 	begin
-		if clk'event and clk = '1' and RST = '1' then
---			if ICACHE_STALL = '1' or WRF_STALL = '1' or DCACHE_STALL = '1' then
+		if clk'event and clk = '1' and RST = '0' then
 			if ICACHE_STALL = '1' or WRF_STALL = '1' then
 				PC_UPDATE <= '0';
+			else
+				PC_UPDATE <= '1';
 			end if;
 		end if;
 	end process;
