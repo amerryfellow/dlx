@@ -1,8 +1,7 @@
-library ieee; 
+library ieee;
 use ieee.std_logic_1164.all;
-use WORK.alu_types.all;
 
-entity FULLADDER is 
+entity FULLADDER is
 
 	port (
 		A:	in	std_logic;
@@ -11,7 +10,7 @@ entity FULLADDER is
 		S:	out	std_logic;
 		Co:	out	std_logic
 	);
-end FULLADDER; 
+end FULLADDER;
 
 -- Architectures
 

@@ -1,15 +1,14 @@
 library ieee; 
 use ieee.std_logic_1164.all; 
 use ieee.std_logic_unsigned.all;
-use WORK.alu_types.all;
 
 -- Generic N-bit Ripple Carry Adder
 
-entity RCA_GENERIC is 
+entity RCA_GENERIC is
 	generic (
-		NBIT	:	integer	:= NRCA
+		NBIT	:	integer	:= 1
 	);
-	
+
 	port (
 		A:	in	std_logic_vector(NBIT-1 downto 0);
 		B:	in	std_logic_vector(NBIT-1 downto 0);
@@ -17,7 +16,7 @@ entity RCA_GENERIC is
 		S:	out	std_logic_vector(NBIT-1 downto 0);
 		Co:	out	std_logic
 	);
-end RCA_GENERIC; 
+end RCA_GENERIC;
 
 -- Architectures
 

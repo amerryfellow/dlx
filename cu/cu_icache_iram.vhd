@@ -17,7 +17,7 @@ architecture TEST of cu_test is
 			IR  :				in std_logic_vector(31 downto 0);
 			JMP_PREDICT :		in std_logic;		-- Jump Prediction
 			JMP_REAL :			in std_logic;		-- Jump real condition
-			ICACHE_STALL:			in std_logic;		-- The instruction cache is in stall
+			ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
 			WRF_STALL:			in std_logic;		-- The WRF is busy
 
 			-- Outputs
@@ -91,6 +91,32 @@ architecture TEST of cu_test is
 		);
 	end component;
 
+	component RCA_GENERIC is
+		generic (
+			NBIT	:	integer	:= 32
+		);
+
+		port (
+			A :		in	std_logic_vector(NBIT-1 downto 0);
+			B :		in	std_logic_vector(NBIT-1 downto 0);
+			Ci :	in	std_logic;
+			S :		out	std_logic_vector(NBIT-1 downto 0);
+			Co :	out	std_logic
+		);
+	end component;
+
+	component SGNEXT is
+		generic (
+			INBITS:		integer;
+			OUTBITS:	integer
+		);
+
+		port(
+			DIN :		in std_logic_vector (INBITS-1 downto 0);
+			DOUT :		out std_logic_vector (OUTBITS-1 downto 0)
+		);
+	end component;
+
 	component LATCH is
 		generic (
 					N: integer := 1
@@ -115,11 +141,25 @@ architecture TEST of cu_test is
 		);
 	end component;
 
-	signal IPC, PC, NPC, IR, RAM_ADDRESS	: std_logic_vector(Instr_size-1 downto 0):=X"00000000" ;
-	signal RAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0);
+	component MUX is
+		generic (
+			N:			integer := 1		-- Number of bits
+		);
+		port (
+			A:		in	std_logic_vector(N-1 downto 0);
+			B:		in	std_logic_vector(N-1 downto 0);
+			SEL:	in	std_logic;
+			Y:		out	std_logic_vector(N-1 downto 0)
+		);
+	end component;
+
+	signal IPC, PC, NPC, LPC				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal IR, IR_RF, ICACHE_IR				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal RAM_ADDRESS						: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal RAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0) := (others => '0');
 	signal ICACHE_STALL						: std_logic := '1';
-	signal ENABLE							: std_logic:= '0';
-	signal RAM_ISSUE, RAM_READY				: std_logic:= '0';
+	signal ENABLE							: std_logic := '0';
+	signal RAM_ISSUE, RAM_READY				: std_logic := '0';
 
 		-- Inputs
 	signal CLK :				 std_logic := '0';		-- Clock
@@ -130,8 +170,10 @@ architecture TEST of cu_test is
 
 		-- Outputs
 	signal MUXBOOT_CTR:		 std_logic;
+	signal MUXBOOT_CTR_DELAYED:		 std_logic;
 	signal PC_UPDATE:			 std_logic;
 	signal PIPEREG1_ENABLE:	 std_logic;
+	signal ICACHE_ENABLE:	 std_logic;
 	signal MUXRD_CTR:			 std_logic;
 	signal WRF_ENABLE:			 std_logic;
 	signal WRF_CALL:			 std_logic;
@@ -151,7 +193,17 @@ architecture TEST of cu_test is
 	signal MEMORY_RNOTW:		 std_logic;
 	signal PIPEREG4_ENABLE:	 std_logic;
 	signal MUXWB_CTR:			 std_logic;
+
+	-- STAGE TWO
+	signal PC_OFFSET:			std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_ADDRESS:			std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_ADDRESS_DELAYED:	std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_CARRYOUT:		std_logic;
 begin
+
+	ICACHE_ENABLE <= not MUXBOOT_CTR;
+	JMP_PREDICT <= '0';
+	JMP_REAL <= MUXBOOT_CTR;
 
 	-- Control Unit
 	dut: CU_UP
@@ -161,21 +213,68 @@ begin
 	IRAM : ROMEM
 		port map (CLK, RST, RAM_ADDRESS, RAM_ISSUE, RAM_READY, RAM_DATA);
 
+	-- CACHE
+--	ICACHE_IN : LATCH
+--		generic map (32)
+--		port map (PC, ICACHE_ENABLE, RST, ICACHE_PC);
+
 	ICACHE : ROCACHE
-		port map (CLK, RST, ENABLE, PC, IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
+		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
+
+	ICACHE_OUT: MUX
+		generic map (32)
+		port map ((others=>'0'), ICACHE_IR, ICACHE_ENABLE, IR);
+
+--	__ INCREMEMTNER
 
 	NPCEVAL: INCREMENTER
 		generic map (32)
 		port map (PC, IPC);
 
-	STALLER: LATCH
-		generic map (32)
-		port map (NPC, PC_UPDATE, RST, PC);
+--	STALLER: LATCH
+--		generic map (32)
+--		port map (NPC, PC_UPDATE, RST, LPC);
 
-	FAKEPIPEREG: REGISTER_FD
---	FAKEPIPEREG: LATCH
+	MUXJMPCTR_DELAYER: REGISTER_FD
+		generic map (1)
+		port map(DIN(0) => MUXBOOT_CTR, CLK => CLK, RESET => RST, DOUT(0) => MUXBOOT_CTR_DELAYED);
+
+--	JUMPER: MUX
+--		generic map (32)
+--		port map (LPC, JMP_ADDRESS_DELAYED, MUXBOOT_CTR_DELAYED, PC);
+
+	LATCHIPLEXER : process(JMP_ADDRESS_DELAYED, NPC, PC_UPDATE, MUXBOOT_CTR)
+	begin
+		if MUXBOOT_CTR_DELAYED = '1' then
+			PC <= JMP_ADDRESS_DELAYED;
+		elsif PC_UPDATE = '1' then
+			PC <= NPC;
+		end if;
+	end process;
+
+	FAKEPIPEREG_NPC: REGISTER_FD
 		generic map (32)
 		port map(IPC, CLK, RST, NPC);
+
+	PROPAGATE_PC_IF_RF: REGISTER_FD
+		generic map (32)
+		port map (IR, CLK, RST, IR_RF);
+
+	--
+	-- STAGE TWO
+	--
+
+	EXTENDER: SGNEXT
+		generic map (26, 32)
+		port map (IR_RF(25 downto 0), PC_OFFSET);
+
+	JMP_ADDER: RCA_GENERIC
+		generic map (32)
+		port map(NPC, PC_OFFSET, '0', JMP_ADDRESS, JMP_CARRYOUT);
+
+	FAKEPIPEREG_JMP_ADDRESS: REGISTER_FD
+		generic map (32)
+		port map(JMP_ADDRESS, CLK, RST, JMP_ADDRESS_DELAYED);
 
 	--  GO!
 
