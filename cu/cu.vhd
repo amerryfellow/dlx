@@ -215,7 +215,7 @@ begin
 						when RTYPE_SNE	=> LUTOUT <= "0" & "00001000000" & "01000" & "0010" & "10";
 						when RTYPE_SGT	=> LUTOUT <= "0" & "00001000000" & "01000" & "0010" & "11";
 
-						when others		=> report "I don't know how to handle this Rtype function!"; null;
+						when others		=> --report "I don't know how to handle this Rtype function!"; null;
 					end case;
 
 				when MULT				=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
@@ -248,7 +248,7 @@ begin
 
 				-- Eh boh!
 				when others =>
-					report "I don't know how to handle this opcode!";
+--					report "I don't know how to handle this opcode!";
 					null;
 			end case;
 		end if;
