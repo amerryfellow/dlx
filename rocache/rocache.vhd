@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use ieee.std_logic_arith.all;
-use work.cachepkg.all;
+use work.ROCACHE_PKG.all;
 
 entity ROCACHE is
 	port (

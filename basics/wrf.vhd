@@ -6,12 +6,13 @@ use WORK.constants.all;
 
 entity WRF is
 	generic (
-		NBIT:	integer	:= numBit;
-		M:		integer := numGlobals;
-		F:		integer := numWindows;
-		N:		integer := numRegsPerWin;
-		NREG:	integer := numGlobals + 2*numWindows*numRegsPerWin;
-		LOGN:	integer := LOG(numRegsPerWin)
+		NBIT:		integer	:= numBit;
+		M:			integer := numGlobals;
+		F:			integer := numWindows;
+		N:			integer := numRegsPerWin;
+		NREG:		integer := numGlobals + 2*numWindows*numRegsPerWin;
+		LOGNREG:	integer;
+		LOGN:		integer;
 	);
 
 	port (
@@ -26,9 +27,9 @@ entity WRF is
 		RD2:			IN std_logic;									-- Read 2
 		WR:				IN std_logic;									-- Write
 
-		ADDR_WR:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Write Address
-		ADDR_RD1:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 1
-		ADDR_RD2:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 2
+		ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
+		ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
+		ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
 
 		DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
 		OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
@@ -37,7 +38,7 @@ entity WRF is
 		MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
 		MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
 		BUSY:			OUT std_logic									-- The register file is busy
-	 );
+	);
 end WRF;
 
 -- Architectures
@@ -62,7 +63,7 @@ architecture behavioral of WRF is
 	-- Address translation routine
 	--
 
-	function ADDRESS_CONVERTER(CWP: natural; ADDR: std_logic_vector(LOG(NREG)-1 downto 0)) return natural is
+	function ADDRESS_CONVERTER(CWP: natural; ADDR: std_logic_vector(LOGNREG-1 downto 0)) return natural is
 		variable REAL_ADDR : natural;
 		variable rCWP : natural;
 		variable res: natural;
@@ -73,9 +74,9 @@ architecture behavioral of WRF is
 			else
 				rCWP := CWP;
 			end if;
-	
+
 			REAL_ADDR := conv_integer(ADDR(LOGN downto 0));
-	
+
 			res := (rCWP mod F)*2*N+REAL_ADDR;
 		else
 			res := 2*F*N + conv_integer(ADDR) - 3*N;
@@ -180,7 +181,7 @@ begin
 						-- to spill next.
 						report "SPILL! index: " & integer'image(index);
 
-						MEMBUS <= REGISTERS(ADDRESS_CONVERTER(CWP+1, std_logic_vector(to_unsigned(index, LOG(NREG)))));
+						MEMBUS <= REGISTERS(ADDRESS_CONVERTER(CWP+1, std_logic_vector(to_unsigned(index, LOGNREG))));
 						MEMCTR <= (others => '1');
 						index := index + 1;
 
@@ -190,9 +191,9 @@ begin
 						if( index = 2*N ) then
 							report "Spilling over";
 							index := 0;				-- Reset the index
-						
+
 							MEMDONE <= '1';			-- Memory operations are over
-							
+
 							SWP <= SWP+1;			-- Adjust the SWP
 						end if; -- index
 					else
@@ -200,9 +201,9 @@ begin
 							-- We use a variable index to keep track of which register has been spilled, and
 							-- which is to spill next.
 							report "FILL! index: " & integer'image(index);
-							REGISTERS(ADDRESS_CONVERTER(CWP, std_logic_vector(to_unsigned(index, LOG(NREG))))) <= MEMBUS;
+							REGISTERS(ADDRESS_CONVERTER(CWP, std_logic_vector(to_unsigned(index, LOGNREG)))) <= MEMBUS;
 							index := index + 1;
-							
+
 							-- If we have reached twice the number of registers per window, it means that we 
 							-- have spilled two entire blocks ( I/O and LOCAL ): the spilling is then over.
 							-- Notice that the check is done with 2*N and not 2*N-1 as index is a variable and
@@ -244,7 +245,7 @@ begin
 
 					-- Fetch the data from the register
 					OUT1 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD1));
-				end if;	
+				end if;
 			end if;
 		end if;
 	end process PROCESS_RD1;
@@ -261,7 +262,7 @@ begin
 		if CLK'event then
 
 			-- Is RESET active?
-			if (RESET = '1') then 
+			if (RESET = '1') then
 				OUT2 <= (others => '0');
 
 			else

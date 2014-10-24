@@ -21,14 +21,13 @@ entity CU_UP is
 		IR  :				in std_logic_vector(31 downto 0);
 		JMP_PREDICT :		in std_logic;		-- Jump Prediction
 		JMP_REAL :			in std_logic;		-- Jump real condition
-		ICACHE_STALL:			in std_logic;		-- The instruction cache is in stall
+		ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
 		WRF_STALL:			in std_logic;		-- The WRF is busy
 
 		-- Outputs
-		MUXBOOT_CTR:		out std_logic;
+		JUMPER:				out std_logic_vector(1 downto 0);
 		PC_UPDATE:			out std_logic;
 
-		PIPEREG1_ENABLE:	out std_logic;
 		MUXRD_CTR:			out std_logic;
 		WRF_ENABLE:			out std_logic;
 		WRF_CALL:			out std_logic;
@@ -36,8 +35,6 @@ entity CU_UP is
 		WRF_RS1_ENABLE:		out std_logic;
 		WRF_RS2_ENABLE:		out std_logic;
 		WRF_RD_ENABLE:		out std_logic;
-		WRF_MEM_BUS:		out std_logic;
-		WRF_MEM_CTR:		out std_logic;
 
 		PIPEREG2_ENABLE:	out std_logic;
 		MUXA_CTR:			out std_logic;
@@ -55,15 +52,15 @@ entity CU_UP is
 end CU_UP;
 
 architecture RTL of CU_UP is
-	signal LUTOUT : std_logic_vector(22 downto 0);
+	signal LUTOUT : std_logic_vector(19 downto 0);
 
-	signal PIPE1	: std_logic_vector(22 downto 0) := (others => '0');
-	signal PIPE2	: std_logic_vector(21 downto 0) := (others => '0');
+	signal PIPE1	: std_logic_vector(19 downto 0) := (others => '0');
+	signal PIPE2	: std_logic_vector(17 downto 0) := (others => '0');
 	signal PIPE3	: std_logic_vector(10 downto 0) := (others => '0');
 	signal PIPE4	: std_logic_vector(5 downto 0) := (others => '0');
 	signal PIPE5	: std_logic_vector(1 downto 0) := (others => '0');
 
-	signal PIPEREG12 : std_logic_vector(21 downto 0) := (others => '0');
+	signal PIPEREG12 : std_logic_vector(17 downto 0) := (others => '0');
 	signal PIPEREG23 : std_logic_vector(10 downto 0) := (others => '0');
 	signal PIPEREG34 : std_logic_vector(5 downto 0) := (others => '0');
 	signal PIPEREG45 : std_logic_vector(1 downto 0) := (others => '0');
@@ -84,7 +81,7 @@ begin
 
 	-- Pipelines
 	PIPE1		<= LUTOUT;
-	PIPEREG12	<= PIPE1(21 downto 0);
+	PIPEREG12	<= PIPE1(17 downto 0);
 	PIPEREG23	<= PIPE2(10 downto 0);
 	PIPEREG34	<= PIPE3(5 downto 0);
 	PIPEREG45	<= PIPE4(1 downto 0);
@@ -94,19 +91,16 @@ begin
 	--
 
 	-- Stage IF
-	MUXBOOT_CTR			<= PIPE1(22);
+	JUMPER				<= PIPE1(19 downto 18);
 
 	-- STAGE ID
-	PIPEREG1_ENABLE		<= PIPE2(21);
-	MUXRD_CTR			<= PIPE2(20);
-	WRF_ENABLE			<= PIPE2(19);
-	WRF_CALL			<= PIPE2(18);
-	WRF_RET				<= PIPE2(17);
-	WRF_RS1_ENABLE		<= PIPE2(16);
-	WRF_RS2_ENABLE		<= PIPE2(15);
-	WRF_RD_ENABLE		<= PIPE2(14);
-	WRF_MEM_BUS			<= PIPE2(13);
-	WRF_MEM_CTR			<= PIPE2(12);
+	MUXRD_CTR			<= PIPE2(17);
+	WRF_ENABLE			<= PIPE2(16);
+	WRF_CALL			<= PIPE2(15);
+	WRF_RET				<= PIPE2(14);
+	WRF_RS1_ENABLE		<= PIPE2(13);
+	WRF_RS2_ENABLE		<= PIPE2(12);
+	WRF_RD_ENABLE		<= PIPE2(11);
 
 	--Stage EXE
 	PIPEREG2_ENABLE		<= PIPE3(10);
@@ -180,7 +174,7 @@ begin
 	PROCESS_LUT: process(clk,RST)
 	begin
 		if RST = '1' then
-			LUTOUT <= "0" & "00000000000" & "0000" & "00000" & "00";
+			LUTOUT <= "00" & "00000000" & "0000" & "00000" & "00";
 
 		elsif clk'event and clk = '1' then
 
@@ -190,61 +184,61 @@ begin
 				when RTYPE =>
 					--report "RTYPE, Bitch!";
 					case (FUNC) is
---						when RTYPE_ADD	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_AND	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_OR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SUB	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_XOR	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SGE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SLE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SLL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SRL	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SNE	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when RTYPE_SGT	=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
---						when NOP		=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when NOP		=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-						when RTYPE_ADD	=> LUTOUT <= "0" & "00001000000" & "01000" & "0000" & "01";
-						when RTYPE_AND	=> LUTOUT <= "0" & "00001000000" & "01000" & "0000" & "10";
-						when RTYPE_OR	=> LUTOUT <= "0" & "00001000000" & "01000" & "0000" & "11";
-						when RTYPE_SUB	=> LUTOUT <= "0" & "00001000000" & "01000" & "0001" & "00";
-						when RTYPE_XOR	=> LUTOUT <= "0" & "00001000000" & "01000" & "0001" & "01";
-						when RTYPE_SGE	=> LUTOUT <= "0" & "00001000000" & "01000" & "0001" & "10";
-						when RTYPE_SLE	=> LUTOUT <= "0" & "00001000000" & "01000" & "0001" & "11";
-						when RTYPE_SLL	=> LUTOUT <= "0" & "00001000000" & "01000" & "0010" & "00";
-						when RTYPE_SRL	=> LUTOUT <= "0" & "00001000000" & "01000" & "0010" & "01";
-						when RTYPE_SNE	=> LUTOUT <= "0" & "00001000000" & "01000" & "0010" & "10";
-						when RTYPE_SGT	=> LUTOUT <= "0" & "00001000000" & "01000" & "0010" & "11";
+--						when RTYPE_ADD	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_AND	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_OR	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SUB	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_XOR	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SGE	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SLE	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SLL	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SRL	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SNE	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when RTYPE_SGT	=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+--						when NOP		=> LUTOUT <= "00" & "0000000000" & "00000" & "0000" & "00";
+						when NOP		=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+						when RTYPE_ADD	=> LUTOUT <= "00" & "00010000" & "01000" & "0000" & "01";
+						when RTYPE_AND	=> LUTOUT <= "00" & "00010000" & "01000" & "0000" & "10";
+						when RTYPE_OR	=> LUTOUT <= "00" & "00010000" & "01000" & "0000" & "11";
+						when RTYPE_SUB	=> LUTOUT <= "00" & "00010000" & "01000" & "0001" & "00";
+						when RTYPE_XOR	=> LUTOUT <= "00" & "00010000" & "01000" & "0001" & "01";
+						when RTYPE_SGE	=> LUTOUT <= "00" & "00010000" & "01000" & "0001" & "10";
+						when RTYPE_SLE	=> LUTOUT <= "00" & "00010000" & "01000" & "0001" & "11";
+						when RTYPE_SLL	=> LUTOUT <= "00" & "00010000" & "01000" & "0010" & "00";
+						when RTYPE_SRL	=> LUTOUT <= "00" & "00010000" & "01000" & "0010" & "01";
+						when RTYPE_SNE	=> LUTOUT <= "00" & "00010000" & "01000" & "0010" & "10";
+						when RTYPE_SGT	=> LUTOUT <= "00" & "00010000" & "01000" & "0010" & "11";
 
 						when others		=> --report "I don't know how to handle this Rtype function!"; null;
 					end case;
 
-				when MULT				=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when MULT				=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
 
 				-- Jump [ OPCODE(6) - PCOFFSET(26) ]
-				when JTYPE_J			=> LUTOUT <= "1" & "10000000000" & "00000" & "0000" & "00";
+				when JTYPE_J			=> LUTOUT <= "11" & "00000000" & "00000" & "0000" & "00";
 											report "Jumping!";
-				when JTYPE_JAL			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when JTYPE_JAL			=> LUTOUT <= "11" & "00000000" & "00000" & "0000" & "00";
 
 				-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
-				when BTYPE_BEQZ			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when BTYPE_BNEZ			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when BTYPE_BEQZ			=> LUTOUT <= "01" & "00000000" & "00000" & "0000" & "00";
+				when BTYPE_BNEZ			=> LUTOUT <= "10" & "00000000" & "00000" & "0000" & "00";
 
 				-- Memory [ OPCODE(6) - RDISPLACEMENT(5) - REG(5) - DISPLACEMENT(16) ]
-				when MTYPE_LW			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when MTYPE_SW			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when MTYPE_LW			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when MTYPE_SW			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
 
 				-- Immediate [ OPCODE(6) - RS1(5) - RD(5) - IMMEDIATE(16) ]
-				when ITYPE_ADD			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_AND			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_OR			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SUB			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_XOR			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SGE			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SLE			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SLL			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SRL			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SNE			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
-				when ITYPE_SGT			=> LUTOUT <= "0" & "00000000000" & "00000" & "0000" & "00";
+				when ITYPE_ADD			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_AND			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_OR			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SUB			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_XOR			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SGE			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SLE			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SLL			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SRL			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SNE			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
+				when ITYPE_SGT			=> LUTOUT <= "00" & "00000000" & "00000" & "0000" & "00";
 
 				-- Eh boh!
 				when others =>

@@ -3,7 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_arith.all;
 use std.textio.all;
 use ieee.std_logic_textio.all;
-use work.cachepkg.all;
+use work.ROCACHE_PKG.all;
 
 -- Instruction memory for DLX
 -- Memory filled by a process which reads from a file

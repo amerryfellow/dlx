@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.STD_LOGIC_ARITH.all;
 use std.textio.all;
-use work.cachepkg.all;
+use work.ROCACHE.all;
 
 entity TBCACHE is
 end TBCACHE;

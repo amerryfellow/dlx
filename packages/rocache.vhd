@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.all;
 use IEEE.STD_LOGIC_ARITH.all;
 use ieee.std_logic_misc.all;
 
-package cachepkg is
+package ROCACHE_PKG is
 constant ROCACHE_WAYS			: natural := 2;
 constant ROCACHE_NUMSETS		: natural := 4;  --Depth of ICache
 constant ROCACHE_WORDS			: natural := 2;
@@ -34,16 +34,11 @@ end record;
 type ROCACHE_LINE is array (ROCACHE_LINES) of ROCACHE_RECORD;
 type ROCACHE_TYPE is array (ROCACHE_SETS) of ROCACHE_LINE;
 
-subtype state_type is std_logic_vector(3 downto 0);
-constant STATE_FLUSH_MEM			: state_type := "0000";
-constant STATE_MISS 				: state_type := "0001";
-constant STATE_COMPARE_TAGS			: state_type := "0010";
-constant STATE_IDLE					: state_type := "0011";
-constant STATE_OUT					: state_type := "0100";
-constant STATE_MISS_1				: state_type := "0101";
-constant STATE_MISS_2				: state_type := "0110";
-constant STATE_MISS_3				: state_type := "0111";
-constant STATE_DATA_READY			: state_type := "1000";
+subtype state_type is std_logic_vector(1 downto 0);
+constant STATE_FLUSH_MEM			: state_type := "00";
+constant STATE_MISS 				: state_type := "01";
+constant STATE_COMPARE_TAGS			: state_type := "10";
+constant STATE_IDLE					: state_type := "11";
 
 function COMPARE_TAGS(
 	x : std_logic_vector(ROCACHE_TAGSIZE - 1 downto 0 );
@@ -59,9 +54,9 @@ function GET_REPLACEMENT_LINE(
 	cache: ROCACHE_TYPE
 ) return natural;
 
-end cachepkg;
+end ROCACHE_PKG;
 
-package body cachepkg is
+package body ROCACHE_PKG is
 	function COMPARE_TAGS(
 			x : std_logic_vector(ROCACHE_TAGSIZE-1 downto 0);
 			y : std_logic_vector(ROCACHE_TAGSIZE-1 downto 0)
