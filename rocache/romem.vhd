@@ -41,7 +41,7 @@ begin
 		if (Rst = '1') then
 			file_open(
 				mem_fp,
-				"/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/icache/hex.txt",
+				"/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt",
 				READ_MODE
 			);
 

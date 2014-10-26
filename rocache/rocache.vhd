@@ -24,7 +24,7 @@ architecture Behavioral of ROCACHE is
 	signal STATE_NEXT						: state_type;
 	signal INT_ISSUE_RAM_READ				: std_logic;
 	signal INT_OUT_DATA						: std_logic_vector(INSTR_SIZE -1 downto 0) := (others => '0');
-	signal NOP_OUT							: std_logic;
+	signal INT_STALL							: std_logic;
 
 begin
 	--
@@ -63,7 +63,7 @@ begin
 					ICACHE(i)(j).valid <= '0'; -- dirty bit
 					ICACHE(i)(j).counter <= 0;
 
-					NOP_OUT <= '1';
+					INT_STALL <= '1';
 
 					for k in 0 to ROCACHE_WORDS - 1 loop
 						ICACHE(i)(j).words(k) <= (others => '1');
@@ -112,14 +112,14 @@ begin
 				INT_OUT_DATA <= RAM_DATA(((index+1)*INSTR_SIZE - 1) downto index*INSTR_SIZE);
 
 				STATE_NEXT <= STATE_COMPARE_TAGS;
-				NOP_OUT <= '0';
+				INT_STALL <= '0';
 				INT_ISSUE_RAM_READ <= '0';
 			end if;
 
 		-- Fetch instruction and print it if HIT
 		when STATE_COMPARE_TAGS =>
 			if(ENABLE = '1') then
-				NOP_OUT <= '1';
+				INT_STALL <= '1';
 
 				-- Look in the ICACHE
 				for i in 0 to ROCACHE_NUMLINES - 1 loop
@@ -148,7 +148,7 @@ begin
 								)
 							);
 
-							NOP_OUT <= '0';
+							INT_STALL <= '0';
 
 							-- Next state: the same
 							STATE_NEXT <= STATE_COMPARE_TAGS;
@@ -191,8 +191,8 @@ begin
 
 	end process;
 
-	STALL			<= NOP_OUT;
+	STALL			<= INT_STALL;
 	RAM_ISSUE		<= INT_ISSUE_RAM_READ;
 	RAM_ADDRESS		<= ADDRESS(INSTR_SIZE - 1 downto 1) & '0' when INT_ISSUE_RAM_READ = '1' else (others => 'Z');
-	OUT_DATA		<= INT_OUT_DATA when NOP_OUT = '0' else (others =>'Z');
+	OUT_DATA		<= INT_OUT_DATA when INT_STALL = '0' else (others =>'Z');
 end Behavioral;

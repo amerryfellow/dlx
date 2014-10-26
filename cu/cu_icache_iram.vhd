@@ -152,41 +152,42 @@ architecture TEST of cu_test is
 	end component;
 
 	component WRF is
-		generic (
-			NBIT:		integer	:= wrfNumBit;
-			M:			integer := wrfNumGlobals;
-			F:			integer := wrfNumWindows;
-			N:			integer := wrfNumRegsPerWin;
-			NREG:		integer := wrfNumRegs; -- 16 + 2*7*8; -- numGlobals + 2*numWindows*numRegsPerWin;
-			LOGNREG:	integer := wrfLogNumRegs;
-			LOGN:		integer := wrfLogNumRegsPerWin
-		);
+	generic (
+		NBIT:		integer;
+		M:			integer;
+		F:			integer;
+		N:			integer;
+		NREG:		integer;
+		LOGNREG:	integer;
+		LOGN:		integer
+	);
 
-		port (
-			CLK:			IN std_logic;
-			RESET:			IN std_logic;
-			ENABLE:			IN std_logic;
+	port (
+		CLK:			IN std_logic;
+		RESET:			IN std_logic;
+		ENABLE:			IN std_logic;
 
-			CALL:			IN std_logic;									-- Call -> Next context
-			RET:			IN std_logic;									-- Return -> Previous context
+		CALL:			IN std_logic;									-- Call -> Next context
+		RET:			IN std_logic;									-- Return -> Previous context
 
-			RD1:			IN std_logic;									-- Read 1
-			RD2:			IN std_logic;									-- Read 2
-			WR:				IN std_logic;									-- Write
+		RD1:			IN std_logic;									-- Read 1
+		RD2:			IN std_logic;									-- Read 2
+		WR:				IN std_logic;									-- Write
 
-			ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
-			ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
-			ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
+		ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
+		ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
+		ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
 
-			DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
-			OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
-			OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
+		DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
+		OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
+		OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
 
-			MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
-			MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
-			BUSY:			OUT std_logic									-- The register file is busy
-		);
+		MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
+		MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
+		BUSY:			OUT std_logic									-- The register file is busy
+	);
 	end component;
+
 
 	signal CLK								: std_logic := '0';		-- Clock
 	signal RST								: std_logic;		-- Reset:Active-Low
@@ -195,7 +196,7 @@ architecture TEST of cu_test is
 	signal IR, IR_RF, ICACHE_IR				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
 	signal RAM_ADDRESS						: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
 	signal RAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0) := (others => '0');
-	signal ICACHE_STALL						: std_logic := '1';
+	signal ICACHE_STALL, ICACHE_STALL_NOT	: std_logic := '1';
 	signal ENABLE							: std_logic := '0';
 	signal RAM_ISSUE, RAM_READY				: std_logic := '0';
 	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
@@ -228,6 +229,7 @@ architecture TEST of cu_test is
 	-- STAGE TWO
 	signal PC_OFFSET						: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_ADDRESS						: std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_ADDRESS_LATCHED				: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_ADDRESS_DELAYED				: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_CARRYOUT						: std_logic;
 
@@ -256,6 +258,7 @@ architecture TEST of cu_test is
 begin
 
 	ICACHE_ENABLE <= not JUMP;
+	ICACHE_STALL_NOT <= not ICACHE_STALL;
 	JMP_PREDICT <= '0';						-- Always predict not taken
 
 	-- Control Unit
@@ -269,9 +272,16 @@ begin
 	ICACHE : ROCACHE
 		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
 
-	ICACHE_OUT: MUX
-		generic map (32)
-		port map ((others=>'0'), ICACHE_IR, ICACHE_ENABLE, IR);
+-- not working
+--	ICACHE_OUT: MUX
+--		generic map (32)
+--		port map ((others=>'0'), ICACHE_IR, ICACHE_STALL_NOT, IR);
+
+--	ICACHE_OUT: LATCH
+--		generic map (32)
+--		port map (ICACHE_IR, ICACHE_STALL_NOT, RST, IR);
+
+IR <= ICACHE_IR;
 
 --	__ INCREMENTER
 
@@ -295,7 +305,7 @@ begin
 				JUMP_RF <= '1';
 
 			when others =>
-				report "WHAT?!?!?";
+--				report "WHAT?!?!?";
 		end case;
 	end process;
 
@@ -304,11 +314,21 @@ begin
 		port map(DIN(0) =>JUMP_RF, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
 
 	LATCHIPLEXER : process(JMP_ADDRESS_DELAYED, NPC, PC_UPDATE, JUMP)
+		variable realNPC : std_logic_vector(INSTR_SIZE-1 downto 0);
 	begin
 		if JUMP = '1' then
-			PC <= JMP_ADDRESS_DELAYED;
-		elsif PC_UPDATE = '1' then
-			PC <= NPC;
+			realNPC := JMP_ADDRESS_DELAYED;
+--			report "realNPC is JMP : " & integer'image(conv_integer(unsigned(JMP_ADDRESS_DELAYED)));
+		else
+			realNPC := NPC;
+--			report "realNPC is NPC : " & integer'image(conv_integer(unsigned(NPC)));
+		end if;
+
+		if PC_UPDATE = '1' then
+			PC <= realNPC;
+			report "PC is realNPC : " & integer'image(conv_integer(unsigned(realNPC)));
+		else
+			report "PC NOT UPDATE";
 		end if;
 	end process;
 
@@ -332,9 +352,13 @@ begin
 		generic map (32)
 		port map(NPC, PC_OFFSET, '0', JMP_ADDRESS, JMP_CARRYOUT);
 
-	FAKEPIPEREG_JMP_ADDRESS: REGISTER_FD
+	JMP_ADDRESS_LATCH: LATCH
 		generic map (32)
-		port map(JMP_ADDRESS, CLK, RST, JMP_ADDRESS_DELAYED);
+		port map(JMP_ADDRESS, PC_UPDATE, RST, JMP_ADDRESS_LATCHED);
+
+	JMP_ADDRESS_DELAYER: REGISTER_FD
+		generic map (32)
+		port map(JMP_ADDRESS_LATCHED, CLK, RST, JMP_ADDRESS_DELAYED);
 
 	-- WRF
 
@@ -343,7 +367,8 @@ begin
 	RD_TEMP	<= IR_RF(16 downto 12);
 
 	REGISTERFILE: WRF
-		port map (CLK, RST, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RD_DATA_WB, RS1_DATA, RS2_DATA, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
+		generic map (wrfNumBit, wrfNumGlobals, wrfNumWindows, wrfNumRegsPerWin, wrfNumRegs, wrfLogNumRegs, wrfLogNumRegsPerWin)
+		port map (CLK, RST, WRF_ENABLE, '0', '0', WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RD_DATA_WB, RS1_DATA, RS2_DATA, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
 
 	MUXRD: MUX
 		generic map (5)

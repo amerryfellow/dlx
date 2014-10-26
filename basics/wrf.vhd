@@ -1,18 +1,18 @@
-library ieee; 
-use ieee.std_logic_1164.all; 
+library ieee;
+use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 use WORK.constants.all;
 
 entity WRF is
 	generic (
-		NBIT:		integer	:= numBit;
-		M:			integer := numGlobals;
-		F:			integer := numWindows;
-		N:			integer := numRegsPerWin;
-		NREG:		integer := numGlobals + 2*numWindows*numRegsPerWin;
+		NBIT:		integer;
+		M:			integer;
+		F:			integer;
+		N:			integer;
+		NREG:		integer;
 		LOGNREG:	integer;
-		LOGN:		integer;
+		LOGN:		integer
 	);
 
 	port (
@@ -117,6 +117,8 @@ begin
 					SWP <= 0;						-- Reset the SWP
 					FILL <= '0';					-- Cancel any ongoing memory operation
 					SPILL <= '0';					-- Cancel any ongoing memory operation
+
+					REGISTERS <= (others =>(others =>'0'));
 				else
 
 					-- Is RETURN active?
@@ -232,7 +234,7 @@ begin
 	PROCESS_RD1: process(CLK)
 	begin
 		-- Synchronous
-		if CLK'event then
+--		if CLK'event then
 
 			-- Is RESET active?
 			if (RESET = '1') then
@@ -245,9 +247,11 @@ begin
 
 					-- Fetch the data from the register
 					OUT1 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD1));
+				else
+					OUT1 <= (others => 'Z');
 				end if;
 			end if;
-		end if;
+--		end if;
 	end process PROCESS_RD1;
 
 	--
@@ -259,7 +263,7 @@ begin
 	PROCESS_RD2: process(CLK)
 	begin
 		-- Synchronous
-		if CLK'event then
+--		if CLK'event then
 
 			-- Is RESET active?
 			if (RESET = '1') then
@@ -272,9 +276,11 @@ begin
 
 					-- Fetch the data from the register
 					OUT2 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD2));
+				else
+					OUT1 <= (others => 'Z');
 				end if;
 			end if;
-		end if;
+--		end if;
 	end process PROCESS_RD2;
 
 	MEMBUSY <= FILL or SPILL;			-- The memory is busy when either FILL or SPILL are active

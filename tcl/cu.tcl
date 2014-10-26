@@ -13,18 +13,11 @@ vcom -reportprogress 300 -work work basics/fulladder.vhd
 vcom -reportprogress 300 -work work basics/rca_generic.vhd
 vcom -reportprogress 300 -work work basics/sgnext.vhd
 vcom -reportprogress 300 -work work basics/mux.vhd
+vcom -reportprogress 300 -work work basics/wrf.vhd
 vcom -reportprogress 300 -work work cu/cu_icache_iram.vhd
 vsim work.cu_test
 add wave -position insertpoint sim:/cu_test/*
+#add wave -position insertpoint sim:/cu_test/REGISTERFILE/*
 add wave -position insertpoint sim:/cu_test/dut/LUTOUT \
-sim:/cu_test/dut/PIPE1 \
-sim:/cu_test/dut/PIPE2 \
-sim:/cu_test/dut/PIPE3 \
-sim:/cu_test/dut/PIPE4 \
-sim:/cu_test/dut/PIPE5 \
-sim:/cu_test/dut/PIPEREG12 \
-sim:/cu_test/dut/PIPEREG23 \
-sim:/cu_test/dut/PIPEREG34 \
-sim:/cu_test/dut/PIPEREG45 \
-sim:/cu_test/dut/OPCODE
-run 500 ns
+sim:/cu_test/dut/INT_PC_UPDATE
+run 1000 ns
