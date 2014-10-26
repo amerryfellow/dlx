@@ -72,7 +72,6 @@ architecture RTL of CU_UP is
 	signal FUNC :		FUNC_TYPE;
 
 	signal JMP_PREDICT_DELAYED : std_logic;
-	signal NEXT_IS_NOP : std_logic;
 
 begin
 
