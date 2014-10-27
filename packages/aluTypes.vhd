@@ -7,9 +7,9 @@ package alu_types is
 	
 	constant ADD			: TYPE_OP:="0001";
 	constant SUBT			: TYPE_OP:="0010";
-	constant BITAND		: TYPE_OP:="0011";
+	constant BITAND			: TYPE_OP:="0011";
 	constant BITOR			: TYPE_OP:="0100";
-	constant BITXOR		: TYPE_OP:="0101";
+	constant BITXOR			: TYPE_OP:="0101";
 	constant FUNCSLL		: TYPE_OP:="0110";
 	constant FUNCSRL		: TYPE_OP:="0111";
 	constant FUNCSRA		: TYPE_OP:="1000";

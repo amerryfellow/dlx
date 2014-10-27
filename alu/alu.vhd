@@ -1,6 +1,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
+use IEEE.numeric_std.all;
 use WORK.alu_types.all;
 
 entity ALU is
@@ -69,14 +70,15 @@ architecture Behavioral of ALU is
 	end component;
 
 	component REGISTER_FD
-		generic (N: integer:= NSUMG);
-
+		generic (
+			N: integer := 1
+		);
 		port (
-			DIN:		in	std_logic_vector(N-1 downto 0);		-- Data in
-			CK:			in	std_logic;							-- Clock
+			DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+			CLK:	in	std_logic;							-- Clock
 			RESET:	in	std_logic;							-- Reset
-			DOUT:		out	std_logic_vector(N-1 downto 0)		-- Data out
-	);
+			DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
+		);
 	end component;
 
 --	component BOOTHMUL
@@ -131,6 +133,7 @@ architecture Behavioral of ALU is
 		begin
 			case FUNC is
 				when ADD =>
+--					report "Adder w/ A: " & integer'image(to_integer(unsigned(A))) & " - B: " & integer'image(to_integer(unsigned(B)));
 					int_A <= A;
 					int_B <= B;
 					Cin <= '0';
@@ -208,6 +211,7 @@ architecture Behavioral of ALU is
 	--	MULTIPLIER:	BOOTHMUL port map	(MUL_A,MUL_B,MUL_OUT);
 	--	MUL_LSB <= MUL_OUT(N-1 downto 0);
 		MULTIPLEXER: MUX4TO1 port map(int_SUM,L_OUT,flag_reg,shift_out,MUX_SEL,preout);
-		OUTPUT: REGISTER_FD port map (preout,CLK,RESET,OUTALU);
+	--	OUTPUT: REGISTER_FD generic map( NSUMG ) port map (preout,CLK,RESET,OUTALU);
+		OUTALU <= preout;
 
 end Behavioral;

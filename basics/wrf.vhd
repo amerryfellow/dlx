@@ -27,13 +27,13 @@ entity WRF is
 		RD2:			IN std_logic;									-- Read 2
 		WR:				IN std_logic;									-- Write
 
-		ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
 		ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
 		ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
+		ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
 
-		DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
 		OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
 		OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
+		DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
 
 		MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
 		MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
@@ -82,13 +82,13 @@ architecture behavioral of WRF is
 			res := 2*F*N + conv_integer(ADDR) - 3*N;
 		end if;
 
-		report "Address translation: CWP " & integer'image(CWP) & " ADDR " & integer'image(REAL_ADDR) & " => INDEX " & integer'image(res);
-		
+--		report "Address translation: CWP " & integer'image(CWP) & " ADDR " & integer'image(REAL_ADDR) & " => INDEX " & integer'image(res);
+
 		return res;
 	end ADDRESS_CONVERTER;
 
 begin
-	
+
 	--
 	-- Handle CALL and RETURN and WRITES
 	--
@@ -99,14 +99,14 @@ begin
 	-- The latter is the choice we made.
 	--
 
-	PROCESS_CALLRETWR: process(CLK)
+	PROCESS_CALLRETWR: process(CLK, RESET, RET, CALL, WR, DATAIN, ADDR_WR)
 		variable index: integer := 0;
 	begin
 		-- Synchronous
 		-- if CLK'event and CLK = '1' then
 
 		-- Synchronous on double fronts
-		if CLK'event and CLK = '1' then
+		if CLK'event and CLK = '0' then
 
 			-- The memory is not busy! I may handle CALLs, RETs or WRs.
 			if MEMBUSY = '0' then
@@ -157,7 +157,7 @@ begin
 
 					-- Is WRITE active?
 					if WR = '1' then
-						report "Im writing " & integer'image(conv_integer(DATAIN)) & " to " & integer'image(ADDRESS_CONVERTER(CWP, ADDR_WR));
+						report "Im writing " & integer'image(conv_integer(DATAIN)) & " to " & integer'image(ADDRESS_CONVERTER(CWP, ADDR_WR)) & " which was " & integer'image(conv_integer(ADDR_WR));
 
 						REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_WR)) <= DATAIN;
 					end if; -- WRITE

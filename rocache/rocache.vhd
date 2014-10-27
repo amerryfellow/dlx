@@ -90,7 +90,7 @@ begin
 				-- Identify line to hold the new data
 				currentLine := GET_REPLACEMENT_LINE(address_stall, ICACHE);
 
-				report "----------------- Instr " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
+--				report "----------------- Instr " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
 
 				-- Store TAG
 				ICACHE(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);
@@ -193,6 +193,6 @@ begin
 
 	STALL			<= INT_STALL;
 	RAM_ISSUE		<= INT_ISSUE_RAM_READ;
-	RAM_ADDRESS		<= ADDRESS(INSTR_SIZE - 1 downto 1) & '0' when INT_ISSUE_RAM_READ = '1' else (others => 'Z');
-	OUT_DATA		<= INT_OUT_DATA when INT_STALL = '0' else (others =>'Z');
+	RAM_ADDRESS		<= ADDRESS(INSTR_SIZE - 1 downto 1) & '0' when INT_ISSUE_RAM_READ = '1' else (others => '0');
+	OUT_DATA		<= INT_OUT_DATA when INT_STALL = '0' else (others =>'0');
 end Behavioral;

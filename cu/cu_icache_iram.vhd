@@ -5,6 +5,7 @@ use ieee.std_logic_arith.all;
 use ieee.std_logic_misc.all;
 use work.CONSTANTS.all;
 use work.ROCACHE_PKG.all;
+use work.alu_types.all;
 use work.cu.all;
 
 entity cu_test is
@@ -31,19 +32,16 @@ architecture TEST of cu_test is
 			WRF_RET:			out std_logic;
 			WRF_RS1_ENABLE:		out std_logic;
 			WRF_RS2_ENABLE:		out std_logic;
-			WRF_RD_ENABLE:		out std_logic;
 
-			PIPEREG2_ENABLE:	out std_logic;
-			MUXA_CTR:			out std_logic;
-			MUXB_CTR:			out std_logic;
-			ALU_FUNC:			out std_logic_vector(1 downto 0);
+			MUXALU_CTR:			out std_logic;
+			ALU_FUNC:			out std_logic_vector(3 downto 0);
 
 			PIPEREG3_ENABLE:	out std_logic;
 			MUXC_CTR:			out std_logic;
 			MEMORY_ENABLE:		out std_logic;
 			MEMORY_RNOTW:		out std_logic;
 
-			PIPEREG4_ENABLE:	out std_logic;
+			WRF_RD_ENABLE:		out std_logic;
 			MUXWB_CTR:			out std_logic
 		);
 	end component;
@@ -152,42 +150,55 @@ architecture TEST of cu_test is
 	end component;
 
 	component WRF is
-	generic (
-		NBIT:		integer;
-		M:			integer;
-		F:			integer;
-		N:			integer;
-		NREG:		integer;
-		LOGNREG:	integer;
-		LOGN:		integer
-	);
+		generic (
+			NBIT:		integer;
+			M:			integer;
+			F:			integer;
+			N:			integer;
+			NREG:		integer;
+			LOGNREG:	integer;
+			LOGN:		integer
+		);
 
-	port (
-		CLK:			IN std_logic;
-		RESET:			IN std_logic;
-		ENABLE:			IN std_logic;
+		port (
+			CLK:			IN std_logic;
+			RESET:			IN std_logic;
+			ENABLE:			IN std_logic;
 
-		CALL:			IN std_logic;									-- Call -> Next context
-		RET:			IN std_logic;									-- Return -> Previous context
+			CALL:			IN std_logic;									-- Call -> Next context
+			RET:			IN std_logic;									-- Return -> Previous context
 
-		RD1:			IN std_logic;									-- Read 1
-		RD2:			IN std_logic;									-- Read 2
-		WR:				IN std_logic;									-- Write
+			RD1:			IN std_logic;									-- Read 1
+			RD2:			IN std_logic;									-- Read 2
+			WR:				IN std_logic;									-- Write
 
-		ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
-		ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
-		ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
+			ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
+			ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
+			ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
 
-		DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
-		OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
-		OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
+			OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
+			OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
+			DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
 
-		MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
-		MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
-		BUSY:			OUT std_logic									-- The register file is busy
-	);
+			MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
+			MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
+			BUSY:			OUT std_logic									-- The register file is busy
+		);
 	end component;
 
+	component ALU
+		generic (
+			N : integer := NSUMG
+		);
+
+		port (
+			FUNC:					in TYPE_OP;
+			A, B:					in std_logic_vector(N-1 downto 0);
+			CLK: 					in std_logic;
+			RESET: 				in std_logic;
+			OUTALU:				out std_logic_vector(N-1 downto 0)
+		);
+	end component;
 
 	signal CLK								: std_logic := '0';		-- Clock
 	signal RST								: std_logic;		-- Reset:Active-Low
@@ -214,21 +225,18 @@ architecture TEST of cu_test is
 	signal WRF_RD_ENABLE					: std_logic;
 	signal WRF_MEM_BUS						: std_logic;
 	signal WRF_MEM_CTR						: std_logic;
-	signal PIPEREG2_ENABLE					: std_logic;
-	signal MUXA_CTR							: std_logic;
-	signal MUXB_CTR							: std_logic;
-	signal ALU_FUNC							: std_logic_vector(1 downto 0);
+	signal MUXALU_CTR						: std_logic;
+	signal ALU_FUNC							: std_logic_vector(3 downto 0);
 	signal PIPEREG3_ENABLE					: std_logic;
 	signal MUXC_CTR							: std_logic;
 	signal MEMORY_ENABLE					: std_logic;
 	signal MEMORY_RNOTW						: std_logic;
-	signal PIPEREG4_ENABLE					: std_logic;
 	signal MUXWB_CTR						: std_logic;
 	signal JUMP								: std_logic;
 	signal JUMP_L							: std_logic;
 
 	-- STAGE TWO
-	signal PC_OFFSET						: std_logic_vector(31 downto 0) := (others => '0');
+	signal IMMEDIATE						: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_ADDRESS						: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_ADDRESS_LATCHED				: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_ADDRESS_DELAYED				: std_logic_vector(31 downto 0) := (others => '0');
@@ -249,13 +257,23 @@ architecture TEST of cu_test is
 	signal RS1_DATA_EX						: std_logic_vector(wrfNumBit-1 downto 0);
 	signal RS2_DATA_EX						: std_logic_vector(wrfNumBit-1 downto 0);
 	signal RD_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);
-	signal PC_OFFSET_EX						: std_logic_vector(INSTR_SIZE-1 downto 0);
+	signal IMMEDIATE_EX						: std_logic_vector(INSTR_SIZE-1 downto 0);
 
 	-- STAGE THREE
 
-	signal RD_WB							: std_logic_vector(wrfLogNumRegs-1 downto 0);
-	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
+	signal ALU_IN2							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal ALU_OUT							: std_logic_vector(WORD_SIZE-1 downto 0);
 
+	signal ALU_OUT_MEM						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal RD_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal RD_DATA_MEM						: std_logic_vector(wrfNumBit-1 downto 0);
+	signal IMMEDIATE_MEM					: std_logic_vector(wrfNumBit-1 downto 0);
+
+	-- STAGE FOUR
+
+	signal RD_WB							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal ALU_OUT_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
 begin
 
 	ICACHE_ENABLE <= not JUMP;
@@ -264,7 +282,7 @@ begin
 
 	-- Control Unit
 	dut: CU_UP
-	port map (CLK, RST, IR, JMP_PREDICT, JUMP_RF, ICACHE_STALL, WRF_STALL, PC_UPDATE, JUMPER, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, PIPEREG2_ENABLE, MUXA_CTR, MUXB_CTR ,ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, PIPEREG4_ENABLE, MUXWB_CTR);
+	port map (CLK, RST, IR, JMP_PREDICT, JUMP_RF, ICACHE_STALL, WRF_STALL, PC_UPDATE, JUMPER, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR);
 
 	-- IRAM
 	IRAM : ROMEM
@@ -325,9 +343,9 @@ begin
 
 		if PC_UPDATE = '1' then
 			PC <= realNPC;
-			report "PC is realNPC : " & integer'image(conv_integer(unsigned(realNPC)));
+--			report "PC is realNPC : " & integer'image(conv_integer(unsigned(realNPC)));
 		else
-			report "PC NOT UPDATE";
+--			report "PC NOT UPDATE";
 		end if;
 	end process;
 
@@ -344,12 +362,12 @@ begin
 	--
 
 	EXTENDER: SGNEXT
-		generic map (26, 32)
-		port map (IR_RF(25 downto 0), PC_OFFSET);
+		generic map (16, 32)
+		port map (IR_RF(15 downto 0), IMMEDIATE);
 
 	JMP_ADDER: RCA_GENERIC
 		generic map (32)
-		port map(NPC, PC_OFFSET, '0', JMP_ADDRESS, JMP_CARRYOUT);
+		port map(NPC, IMMEDIATE, '0', JMP_ADDRESS, JMP_CARRYOUT);
 
 	JMP_ADDRESS_LATCH: LATCH
 		generic map (32)
@@ -363,11 +381,11 @@ begin
 
 	RS1		<= IR_RF(25 downto 21);
 	RS2		<= IR_RF(20 downto 16);
-	RD_TEMP	<= IR_RF(16 downto 12);
+	RD_TEMP	<= IR_RF(15 downto 11);
 
 	REGISTERFILE: WRF
 		generic map (wrfNumBit, wrfNumGlobals, wrfNumWindows, wrfNumRegsPerWin, wrfNumRegs, wrfLogNumRegs, wrfLogNumRegsPerWin)
-		port map (CLK, RST, WRF_ENABLE, '0', '0', WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RD_DATA_WB, RS1_DATA, RS2_DATA, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
+		port map (CLK, RST, WRF_ENABLE, '0', '0', WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
 
 	MUXRD: MUX
 		generic map (5)
@@ -389,15 +407,49 @@ begin
 
 	PIPEREG_RS2_DATA: REGISTER_FD
 		generic map (32)
-		port map(RS2_DATA, CLK, RST, RS1_DATA_EX);
+		port map(RS2_DATA, CLK, RST, RS2_DATA_EX);
 
-	PIPEREG_PC_OFFSET: REGISTER_FD
+	PIPEREG_IMMEDIATE: REGISTER_FD
 		generic map (32)
-		port map(PC_OFFSET, CLK, RST, PC_OFFSET_EX);
-
+		port map(IMMEDIATE, CLK, RST, IMMEDIATE_EX);
 
 	-- STAGE 3
 
+	MUX_ALU2 : MUX
+		generic map ( WORD_SIZE )
+		port map ( IMMEDIATE_EX, RS2_DATA_EX, MUXALU_CTR, ALU_IN2 );
+
+	EXECUTER : ALU
+		generic map ( WORD_SIZE )
+		port map ( ALU_FUNC, RS1_DATA_EX, ALU_IN2, CLK, RST, ALU_OUT );
+
+	PIPEREG_ALU_OUT: REGISTER_FD
+		generic map (32)
+		port map(ALU_OUT, CLK, RST, ALU_OUT_MEM);
+
+	PIPEREG_IMMEDIATE_EX: REGISTER_FD
+		generic map (32)
+		port map(IMMEDIATE_EX, CLK, RST, IMMEDIATE_MEM);
+
+	PIPEREG_RD_EX: REGISTER_FD
+		generic map (5)
+		port map(RD_EX, CLK, RST, RD_MEM);
+
+	-- STAGE FOUR
+
+	PIPEREG_RD_MEM: REGISTER_FD
+		generic map (5)
+		port map(RD_MEM, CLK, RST, RD_WB);
+
+	PIPEREG_ALU_OUT_MEM: REGISTER_FD
+		generic map (32)
+		port map(ALU_OUT_MEM, CLK, RST, ALU_OUT_WB);
+
+	-- STAGE FIVE
+
+	RD_DATA_WB <= ALU_OUT_WB;
+
+	-- Nothing
 
 	--  GO!
 

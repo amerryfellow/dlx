@@ -111,7 +111,7 @@ function GET_REPLACEMENT_LINE (
 --		end loop;
 
 		-- Iterate
-		for i in 0 to ROCACHE_NUMSETS - 1 loop
+		for i in 0 to ROCACHE_NUMLINES - 1 loop
 			-- If not valid -> USE IT
 			if(cache( GET_SET(pc) )(i).valid = '0') then
 				to_evict := i;

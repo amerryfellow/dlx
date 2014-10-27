@@ -8,19 +8,19 @@ entity TBALU is
 end TBALU;
 
 architecture ALU_TEST of TBALU is
-  constant NBIT: integer := NSUMG;
+	constant NBIT: integer := NSUMG;
 	signal	FUNC_CODE:	TYPE_OP:=ADD;
-	signal CLK: std_logic:='0';
-	signal RESET: std_logic;
+	signal	CLK:	std_logic:='0';
+	signal	RESET:	std_logic;
 	signal	OP1:	STD_LOGIC_VECTOR(NBIT-1 downto 0);
 	signal	OP2:	STD_LOGIC_VECTOR(NBIT-1 downto 0);
 	signal	RESULT:	STD_LOGIC_VECTOR(NBIT-1 downto 0);
-	
+
 	component ALU
 		generic (
 			N : integer := NSUMG
 		);
-		
+
 		port (
 		FUNC:					in TYPE_OP;
 		A, B:					in std_logic_vector(N-1 downto 0);
@@ -34,12 +34,12 @@ architecture ALU_TEST of TBALU is
 		p_clock: process (CLK)
 		begin  -- process p_clock
 			CLK <= not(CLK) after 2 ns;
- 		end process p_clock;
-		
+		end process p_clock;
+
 		RESET <= '1', '0' after 1 ns;
 		U1 : ALU
 		generic map (NBIT)
-		port map (FUNC_CODE, OP1, OP2,CLK, RESET,  RESULT); 
+		port map (FUNC_CODE, OP1, OP2,CLK, RESET,  RESULT);
 
 		OP1 <= "00000000000000000000000000110101";
 		OP2 <= "00000000000000000000000000010110";
@@ -51,7 +51,7 @@ architecture ALU_TEST of TBALU is
 			BITOR after 40 ns,
 			BITXOR after 48 ns,
 			FUNCSLL after 56 ns,
-			FUNCSRL after 64 ns, 
+			FUNCSRL after 64 ns,
 			FUNCSRA after 72 ns,
 			COMP after 80 ns;
 
