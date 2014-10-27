@@ -216,5 +216,5 @@ begin
 	RAM_ISSUE		<= INT_ISSUE_RAM_READ;
 	RAM_ADDRESS		<= ADDRESS(DATA_SIZE - 1 downto 1) & '0' when INT_ISSUE_RAM_READ = '1' else (others => 'Z');
 	RAM_DATA		<= INT_RAM_DATA when NOP_OUT = '1' else (others =>'Z');
-	INOUT_DATA		<= INT_INOUT_DATA when NOP_OUT = '0' and READNOTWRITE = '1' else (others =>'Z');
+	INOUT_DATA		<= INT_INOUT_DATA when READNOTWRITE = '1' else (others =>'Z');
 end Behavioral;

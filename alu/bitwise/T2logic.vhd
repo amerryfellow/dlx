@@ -47,16 +47,11 @@ L1_GEN : nand3to1 port map (neg_R1,R2,S1,L1);
 L2_GEN : nand3to1 port map (R1,neg_R2,S2,L2);
 L3_GEN : nand3to1 port map (R1,R2,S3,L3);
 
-
-
-L_TEMP_GEN: 
-		for i in 0 to N-1 generate
-			L_TEMP(i) <= L1(i) nand L2(i);
-		end generate;
+L_OUT_TEMP:  nand3to1 port map (L1,L2,'1',L_temp);
 
 L_OUT_GEN: 
 		for i in 0 to N-1 generate
-			L_OUT(i) <= L_TEMP(i) or (not L3(i));
+			L_OUT(i) <= L_temp(i) or (not L3(i));
 		end generate;
 
 

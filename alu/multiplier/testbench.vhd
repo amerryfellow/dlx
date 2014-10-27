@@ -1,7 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
-use WORK.generics.all;
+use WORK.constants.all;
 
 entity MULTIPLIER_tb is
 end MULTIPLIER_tb;
@@ -10,7 +10,7 @@ end MULTIPLIER_tb;
 architecture TEST of MULTIPLIER_tb is
 
 
-  constant NBIT : integer := 8;    -- :=8  --:=16    
+  constant NBIT : integer := 16;    -- :=8  --:=16    
 
   --  input	 
   signal A_mp_i : std_logic_vector(NBIT-1 downto 0) := (others => '0');
@@ -37,9 +37,11 @@ begin
 -- MUL instantiation
 --
 --
-UNIT:BOOTHMUL port map(A_mp_i,B_mp_i,Y_mp_i);
+UNIT:BOOTHMUL 
+			generic map(NBIT)
+			port map(A_mp_i,B_mp_i,Y_mp_i);
 
-
+	
 -- PROCESS FOR TESTING TEST - COMLETE CYCLE ---------
   test: process
   begin

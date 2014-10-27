@@ -1,46 +1,56 @@
 library ieee; 
 use ieee.std_logic_1164.all; 
 use ieee.std_logic_unsigned.all;
-use work.constants.all;
+use WORK.alu_types.all;
 
 -- Entity
 
 entity P4ADDER is
 	generic(
-		N:integer:=NSUMG
+		N: integer:= NSUMG
 	);
-
 	port (
-		ENABLE:		in	std_logic;
 		A:			in	std_logic_vector(N-1 downto 0);
 		B:			in	std_logic_vector(N-1 downto 0);
-		C0:			in	std_logic;
+		Cin:		in	std_logic;
 		S:			out	std_logic_vector(N-1 downto 0);
-		OVERFLOW:	out	std_logic						-- In case we need it
+		
+		-- In case we need it,and it is only used for debugging the correct behaviour of the adder 
+		Cout:		out	std_logic
 	);
 end P4ADDER;
 
--- Architectures
+-- 
+-- This is the structural architecture of a generic P4 adder.
+--
+-- TREE is a generic sparse radix-2 carry-merge that generates 
+-- every fourth carry in the adder.
+--
+-- SUMGENERATOR consists of (N/4 - 1) CSBs, each having
+-- 2 4-bit Ripple Carry Adders. The carry select is thus
+-- generic in terms of the number of carry select blocks.
+-- 
 
 architecture structural of P4ADDER is
 	signal CARRY, Ci:	std_logic_vector(N/4 - 1 downto 0);
 
-	component TREE
+	component TREE 
 		generic(
-			N:	integer	:= NSUMG;
-			NC:	integer	:= LOG(NSUMG)
+			N:		integer	:= NSUMG;
+			LOGN:	integer := LOG(NSUMG) -- For the LOG function refers to the P4ADDER_constants
 		);
 		port(
-			A:		in	std_logic_vector(N-1 downto 0);
-			B:		in	std_logic_vector(N-1 downto 0);
-			C:		out	std_logic_vector(NC-1 downto 0)
+			A:		in	std_logic_vector(N-1 downto 0);		-- N bit input
+			B:		in	std_logic_vector(N-1 downto 0);		-- N bit input
+			Cin: 	in std_logic;
+			C:		out	std_logic_vector(N/4-1 downto 0)	-- Generate a carry every fourth bit
 		);
 	end component;
 
 	component SUMGENERATOR
 		generic(
-			NBIT:integer:=NSUMG; --32
-			NCSB:integer:=NCSUMG --8
+			NBIT: integer := NSUMG; --32
+			NCSB: integer := NCSUMG --8
 		);
 		port (
 			A:	in	std_logic_vector(NBIT-1 downto 0);
@@ -49,17 +59,17 @@ architecture structural of P4ADDER is
 			S:	out	std_logic_vector(NBIT-1 downto 0)
 		);
 	end component;
-
-	signal OENABLE : std_logic_vector(N-1 downto 0);
 begin
+	SPARSE_TREE: TREE
+		generic map(N , LOG(N)) 
+		port map(A, B, Cin ,CARRY);
+	
+	-- As C32 is not needed/ '0' is the first carry in (without propagate)
+	Ci			<= CARRY((N/4)-2 downto 0) & Cin;
+	Cout		<= CARRY((N/4)-1);
 
-	SPARSE_TREE: TREE port map(A, B, CARRY);
-
-	-- As C32 is not needed/ '0' is the first carry in
-	Ci			<= CARRY(NCSUMG-2 downto 0) & C0;
-	OVERFLOW	<= CARRY(NCSUMG-1);
-
-	SUM_GENERATOR: SUMGENERATOR port map(A, B, Ci, OENABLE);
-
-	S <= OENABLE when ENABLE = '1' else (others => 'Z');
+	SUM_GENERATOR: SUMGENERATOR
+		generic map(N , N/4)
+		port map(A,B,Ci,S);
 end structural;
+

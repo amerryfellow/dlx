@@ -1,7 +1,7 @@
 library ieee; 
 use ieee.std_logic_1164.all; 
 use ieee.std_logic_unsigned.all;
-use work.constants.all;
+use WORK.alu_types.all;
 
 entity TREE_PG is
 	port(
