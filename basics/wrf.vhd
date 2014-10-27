@@ -106,7 +106,7 @@ begin
 		-- if CLK'event and CLK = '1' then
 
 		-- Synchronous on double fronts
-		if CLK'event then
+		if CLK'event and CLK = '1' then
 
 			-- The memory is not busy! I may handle CALLs, RETs or WRs.
 			if MEMBUSY = '0' then
@@ -231,28 +231,30 @@ begin
 	-- This process is responsible for handling the first read port of the register file.
 	--
 
-	PROCESS_RD1: process(CLK)
-	begin
-		-- Synchronous
+--	PROCESS_RD1: process(CLK)
+--	begin
+--		-- Synchronous
 --		if CLK'event then
-
-			-- Is RESET active?
-			if (RESET = '1') then
-				OUT1 <= (others=> '0');		-- Null
-			else
-
-				-- If the RF is enabled, the Read1 signal is active, and memory is not busy
-				if RD1 = '1' and ENABLE = '1' and MEMBUSY = '0' then
-					report "Im reading " & integer'image(conv_integer(ADDR_RD1(LOGN downto 0)));
-
-					-- Fetch the data from the register
-					OUT1 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD1));
-				else
-					OUT1 <= (others => 'Z');
-				end if;
-			end if;
+--
+--			-- Is RESET active?
+--			if (RESET = '1') then
+--				OUT1 <= (others=> '0');		-- Null
+--			else
+--
+--				-- If the RF is enabled, the Read1 signal is active, and memory is not busy
+--				if RD1 = '1' and ENABLE = '1' and MEMBUSY = '0' then
+--					report "Im reading " & integer'image(conv_integer(ADDR_RD1(LOGN downto 0)));
+--
+--					-- Fetch the data from the register
+--					OUT1 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD1));
+--				else
+--					OUT1 <= (others => 'Z');
+--				end if;
+--			end if;
 --		end if;
-	end process PROCESS_RD1;
+--	end process PROCESS_RD1;
+
+OUT1 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD1)) when ( RD1 = '1' and ENABLE = '1' and MEMBUSY = '0' ) else (others => '0');
 
 	--
 	-- Handle Read 2
@@ -260,28 +262,30 @@ begin
 	-- This process is responsible for handling the second read port of the register file.
 	--
 
-	PROCESS_RD2: process(CLK)
-	begin
-		-- Synchronous
+--	PROCESS_RD2: process(CLK)
+--	begin
+--		-- Synchronous
 --		if CLK'event then
+--
+--			-- Is RESET active?
+--			if (RESET = '1') then
+--				OUT2 <= (others => '0');
+--
+--			else
+--				-- If the RF is enabled, the Read2 signal is active, and memory is not busy
+--				if RD2 = '1' and ENABLE = '1' and MEMBUSY = '0' then
+--					report "Im reading " & integer'image(conv_integer(ADDR_RD2(LOGN downto 0)));
 
-			-- Is RESET active?
-			if (RESET = '1') then
-				OUT2 <= (others => '0');
-
-			else
-				-- If the RF is enabled, the Read2 signal is active, and memory is not busy
-				if RD2 = '1' and ENABLE = '1' and MEMBUSY = '0' then
-					report "Im reading " & integer'image(conv_integer(ADDR_RD2(LOGN downto 0)));
-
-					-- Fetch the data from the register
-					OUT2 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD2));
-				else
-					OUT1 <= (others => 'Z');
-				end if;
-			end if;
+--					-- Fetch the data from the register
+--					OUT2 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD2));
+--				else
+--					OUT2 <= (others => 'Z');
+--				end if;
+--			end if;
 --		end if;
-	end process PROCESS_RD2;
+--	end process PROCESS_RD2;
+
+OUT2 <= REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_RD2)) when ( RD2 = '1' and ENABLE = '1' and MEMBUSY = '0' ) else (others => '0');
 
 	MEMBUSY <= FILL or SPILL;			-- The memory is busy when either FILL or SPILL are active
 	BUSY <= MEMBUSY;					-- MEMBUSY, being an internal signal, can be both read and written.

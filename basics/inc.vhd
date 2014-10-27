@@ -5,7 +5,7 @@ use ieee.std_logic_unsigned.all;
 entity INCREMENTER is
 	generic (
 		N : integer
-	)
+	);
 	port (
 		A: in std_logic_vector (N-1 downto 0);
 		Y: out std_logic_vector(N-1 downto 0)
@@ -29,7 +29,7 @@ begin
 	cout(0) <= A(0);		-- cout = A(0) and 1= A(0)
 
 	PROPAGATION: for X in 1 to N-1 generate
-		INIT_HA: HA port map (A(X),cout(X - 1),sum(X),cout(X));
+		INIT_HA: halfadder port map (A(X),cout(X - 1),sum(X),cout(X));
 	end generate;
 
 	Y <= sum;

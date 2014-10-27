@@ -148,7 +148,6 @@ begin
 			-- Bubble propagation in stage 2 when
 			-- 1) Mispredicted branch
 			-- 2) Instruction cache stall
-
 			if (JMP_REAL xor JMP_PREDICT_DELAYED) = '1' or ICACHE_STALL = '1' then
 				PIPE2 <= (others => '0');
 			else
@@ -176,6 +175,7 @@ begin
 
 	PROCESS_LUT: process(clk,RST)
 	begin
+		-- If reset OR stall -> feed NOPS
 		if RST = '1' then
 			INT_LUTOUT <= "00" & "0000000" & "0000" & "00000" & "00";
 
@@ -211,8 +211,8 @@ begin
 				when JTYPE_JAL			=> INT_LUTOUT <= "11" & "0000000" & "00000" & "0000" & "00";
 
 				-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
-				when BTYPE_BEQZ			=> INT_LUTOUT <= "01" & "0100100" & "00000" & "0000" & "00";
-				when BTYPE_BNEZ			=> INT_LUTOUT <= "10" & "0100100" & "00000" & "0000" & "00";
+				when BTYPE_BEQZ			=> INT_LUTOUT <= "01" & "0100110" & "00000" & "0000" & "00";
+				when BTYPE_BNEZ			=> INT_LUTOUT <= "10" & "0100110" & "00000" & "0000" & "00";
 
 				-- Memory [ OPCODE(6) - RDISPLACEMENT(5) - REG(5) - DISPLACEMENT(16) ]
 				when MTYPE_LW			=> INT_LUTOUT <= "00" & "0100110" & "00000" & "0000" & "00";
@@ -267,9 +267,8 @@ begin
 		end if;
 	end process;
 
-INT_PC_UPDATE <= '0' when ICACHE_STALL = '1' or WRF_STALL = '1' else '1';
---LUTOUT <= INT_LUTOUT;
-	LUTOUT <= INT_LUTOUT when INT_PC_UPDATE = '1' else (others => '0');
+	INT_PC_UPDATE <= '0' when ICACHE_STALL = '1' or WRF_STALL = '1' else '1';
+	LUTOUT <= INT_LUTOUT;
 
 end RTL;
 

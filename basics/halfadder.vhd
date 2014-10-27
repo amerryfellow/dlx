@@ -8,9 +8,9 @@ port(
 		S: out std_logic;
 		C: out std_logic
 		);
-end ha;
+end halfadder;
 
-architecture beh of ha is
+architecture beh of halfadder is
 
 begin
 	C <= A and B;

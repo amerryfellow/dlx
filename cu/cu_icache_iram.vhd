@@ -225,6 +225,7 @@ architecture TEST of cu_test is
 	signal PIPEREG4_ENABLE					: std_logic;
 	signal MUXWB_CTR						: std_logic;
 	signal JUMP								: std_logic;
+	signal JUMP_L							: std_logic;
 
 	-- STAGE TWO
 	signal PC_OFFSET						: std_logic_vector(31 downto 0) := (others => '0');
@@ -272,16 +273,9 @@ begin
 	ICACHE : ROCACHE
 		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
 
--- not working
---	ICACHE_OUT: MUX
---		generic map (32)
---		port map ((others=>'0'), ICACHE_IR, ICACHE_STALL_NOT, IR);
-
---	ICACHE_OUT: LATCH
---		generic map (32)
---		port map (ICACHE_IR, ICACHE_STALL_NOT, RST, IR);
-
-IR <= ICACHE_IR;
+	MUX_IR : MUX
+		generic map ( 32 )
+		port map( ICACHE_IR, (others => '0'), JUMP_L, IR );
 
 --	__ INCREMENTER
 
@@ -309,9 +303,14 @@ IR <= ICACHE_IR;
 		end case;
 	end process;
 
+	JUMP_LATCH: LATCH
+		generic map(1)
+		port map(DIN(0) => JUMP_RF, EN => PC_UPDATE, RESET => RST, DOUT(0) => JUMP_L);
+
 	JUMP_DELAYER: REGISTER_FD
 		generic map (1)
-		port map(DIN(0) =>JUMP_RF, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
+		port map(DIN(0) =>JUMP_L, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
+
 
 	LATCHIPLEXER : process(JMP_ADDRESS_DELAYED, NPC, PC_UPDATE, JUMP)
 		variable realNPC : std_logic_vector(INSTR_SIZE-1 downto 0);

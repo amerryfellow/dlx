@@ -4,7 +4,7 @@ vcom -reportprogress 300 -work work packages/rocache.vhd
 vcom -reportprogress 300 -work work rocache/romem.vhd
 vcom -reportprogress 300 -work work rocache/rocache.vhd
 vcom -reportprogress 300 -work work cu/cu.vhd
-vcom -reportprogress 300 -work work alu/adder/carrygenerator/init_pg.vhd
+vcom -reportprogress 300 -work work basics/halfadder.vhd
 vcom -reportprogress 300 -work work basics/inc.vhd
 vcom -reportprogress 300 -work work basics/latch.vhd
 vcom -reportprogress 300 -work work basics/flipflop.vhd
