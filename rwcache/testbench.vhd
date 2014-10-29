@@ -46,7 +46,7 @@ signal	RST						: std_logic;  -- active high
 signal	ENABLE					: std_logic;
 signal	READNOTWRITE			: std_logic;
 signal	ADDRESS					: std_logic_vector(DATA_SIZE - 1 downto 0);
-signal	INOUT_DATA				: std_logic_vector(DATA_SIZE - 1 downto 0);
+signal	INOUT_DATA,INOUT_DATA_T	: std_logic_vector(DATA_SIZE - 1 downto 0);
 signal	STALL					: std_logic;
 signal	RAM_ISSUE				: std_logic;
 signal	RAM_READNOTWRITE		: std_logic;
@@ -68,22 +68,22 @@ begin
 
 	pc_ref:process
 			begin
---				READNOTWRITE <= '1';
---				ADDRESS <= X"00000002";
---				INOUT_DATA <= (others => 'Z');
---				wait until STALL = '0' and clk'event and clk='1';
---				ADDRESS <= X"00000003";
---				wait until STALL = '0' and clk'event and clk='1';
---				ADDRESS <= X"00000004";
---				wait until STALL = '0' and clk'event and clk='1';
---				ADDRESS <= X"00000005";
+				READNOTWRITE <= '1';
+				ADDRESS <= X"00000002";
+			--	INOUT_DATA <= (others => 'Z');
+				wait until STALL = '0' and clk'event and clk='1';
+				ADDRESS <= X"00000003";
+				wait until STALL = '0' and clk'event and clk='1';
+				ADDRESS <= X"00000004";
+				wait until STALL = '0' and clk'event and clk='1';
+				ADDRESS <= X"00000005";
 
---				wait until STALL = '0' and clk'event and clk='1';
+				wait until STALL = '0' and clk'event and clk='1';
 				READNOTWRITE <= '0';
 				ADDRESS <= X"00000002";
 				INOUT_DATA <= X"AABBCCDD";
 				wait until STALL = '0' and clk'event and clk='1';
-				INOUT_DATA <= (others => 'Z');
+			--	INOUT_DATA <= (others => 'Z');
 				READNOTWRITE <= '1';
 				ADDRESS <= X"00000003";
 				wait until STALL = '0' and clk'event and clk='1';
@@ -93,15 +93,15 @@ begin
 				ADDRESS <= X"00000003";
 				INOUT_DATA <= X"FFEEFFEE";
 				wait until STALL = '0' and clk'event and clk='1';
-				INOUT_DATA <= (others => 'Z');
+			--	INOUT_DATA <= (others => 'Z');
 				READNOTWRITE <= '1';
 				ADDRESS <= X"00000002";
 				wait until STALL = '0' and clk'event and clk='1';
 				ADDRESS <= X"00000003";
 		end process pc_ref;
-
+	INOUT_DATA_T <= INOUT_DATA WHEN READNOTWRITE = '0' else (others=>'Z');
 	IRAM_G		: ROMEM port map(CLK, RST, RAM_ADDRESS, RAM_ISSUE, RAM_READY, RAM_DATA);
-	IC_MEM_G	: RWCACHE port map (CLK, RST, ENABLE, READNOTWRITE, ADDRESS, INOUT_DATA, STALL, RAM_ISSUE, RAM_READNOTWRITE, RAM_ADDRESS, RAM_DATA, RAM_READY);
+	IC_MEM_G	: RWCACHE port map (CLK, RST, ENABLE, READNOTWRITE, ADDRESS, INOUT_DATA_T, STALL, RAM_ISSUE, RAM_READNOTWRITE, RAM_ADDRESS, RAM_DATA, RAM_READY);
 
 end TB_1;
 

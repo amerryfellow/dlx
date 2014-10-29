@@ -11,11 +11,11 @@ entity RWCACHE is
 		READNOTWRITE			: in std_logic;
 		ADDRESS					: in std_logic_vector(DATA_SIZE - 1 downto 0);
 		INOUT_DATA				: inout std_logic_vector(DATA_SIZE - 1 downto 0);
-		STALL					: out std_logic;
+		STALL						: out std_logic;
 		RAM_ISSUE				: out std_logic;
 		RAM_READNOTWRITE		: out std_logic;
 		RAM_ADDRESS				: out std_logic_vector(DATA_SIZE - 1 downto 0);
-		RAM_DATA				: inout std_logic_vector(2*DATA_SIZE - 1 downto 0);
+		RAM_DATA					: inout std_logic_vector(2*DATA_SIZE - 1 downto 0);
 		RAM_READY				: in std_logic
 	);
 end RWCACHE;
@@ -25,7 +25,7 @@ architecture Behavioral of RWCACHE is
 	signal STATE_CURRENT					: state_type;
 	signal STATE_NEXT						: state_type;
 	signal INT_ISSUE_RAM_READ				: std_logic;
-	signal INT_INOUT_DATA					: std_logic_vector(DATA_SIZE -1 downto 0) := (others => 'Z');
+	signal INT_INOUT_DATA					: std_logic_vector(DATA_SIZE -1 downto 0);
 	signal INT_RAM_DATA						: std_logic_vector(2*DATA_SIZE -1 downto 0) := (others => 'Z');
 	signal NOP_OUT							: std_logic;
 
@@ -45,7 +45,7 @@ begin
 	--
 	-- The MONSTER
 	--
-	main: process(STATE_CURRENT, ADDRESS, RAM_READY)
+	main: process(STATE_CURRENT, ADDRESS, RAM_READY,READNOTWRITE,INOUT_DATA)
 		variable HIT		 		: std_logic:='0';
 		variable int_mem			: std_logic_vector(2*DATA_SIZE - 1 downto 0);
 		variable currentLine		: natural range 0 to 2**RWCACHE_COUNTERSIZE;
@@ -62,13 +62,14 @@ begin
 
 		when  STATE_FLUSH_MEM =>
 --			ADDRESS <= (others => '0');
+			INT_INOUT_DATA <= (others =>'0');
 			for i in 0 to RWCACHE_NUMSETS - 1 loop
 				for j in 0 to RWCACHE_NUMLINES - 1 loop
 
 					CACHE(i)(j).tag( RWCACHE_TAGSIZE - 1 downto 0 ) <= (others => '1');
 					CACHE(i)(j).valid <= '0'; -- dirty bit
 					CACHE(i)(j).counter <= 0;
-
+					
 					NOP_OUT <= '1';
 
 					for k in 0 to RWCACHE_WORDS - 1 loop
@@ -97,7 +98,7 @@ begin
 				currentLine := GET_REPLACEMENT_LINE(address_stall, CACHE);
 
 				-- Identify word index inside the line
-				index := conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0)));
+			--	index := conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0))); 
 
 				report "----------------- Instr " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(DATA_SIZE-1 downto RWCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
 
@@ -112,7 +113,7 @@ begin
 
 				-- Fetch the line from memory data bus and write it into the cache data
 				for i in 0 to RWCACHE_WORDS - 1 loop
-					if( READNOTWRITE = '0' and i = index ) then
+					if( READNOTWRITE = '0' and i = conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0)))) then 
 						CACHE(GET_SET(address_stall))(currentLine).words(i) <= data_stall;
 					else
 						CACHE(GET_SET(address_stall))(currentLine).words(i)
@@ -122,7 +123,9 @@ begin
 
 				-- Write the DATA_OUT
 				if(readnotwrite_stall = '1') then
-					INT_INOUT_DATA <= RAM_DATA(((index+1)*DATA_SIZE - 1) downto index*DATA_SIZE);
+					INT_INOUT_DATA <= RAM_DATA(
+						((conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0)))+1)*DATA_SIZE - 1) 
+						downto conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0)))*DATA_SIZE);
 				end if;
 
 				STATE_NEXT <= STATE_COMPARE_TAGS;
@@ -152,7 +155,7 @@ begin
 						if(CACHE(GET_SET(ADDRESS))(i).valid = '1') then
 							lineIndex:= i;
 
---							report string'("STATE: ") & integer'image(conv_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(conv_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(conv_integer(conv_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
+					--		report string'("STATE: ") & integer'image(conv_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(conv_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(conv_integer(conv_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
 
 							HIT := '0'; -- Reset HIT
 
@@ -169,7 +172,7 @@ begin
 										conv_integer(unsigned(ADDRESS(RWCACHE_INDEXOFFSET - 1 downto 0))
 									)
 								) <= INOUT_DATA;
-
+								report string'("I'm here and inout_data is:") & integer'image(conv_integer(signed(inout_data))); 
 								alreadyWrote := '1';
 							end if;
 
@@ -215,6 +218,6 @@ begin
 	STALL			<= NOP_OUT;
 	RAM_ISSUE		<= INT_ISSUE_RAM_READ;
 	RAM_ADDRESS		<= ADDRESS(DATA_SIZE - 1 downto 1) & '0' when INT_ISSUE_RAM_READ = '1' else (others => 'Z');
-	RAM_DATA		<= INT_RAM_DATA when NOP_OUT = '1' else (others =>'Z');
+	RAM_DATA			<= INT_RAM_DATA when NOP_OUT = '1' else (others =>'Z');
 	INOUT_DATA		<= INT_INOUT_DATA when READNOTWRITE = '1' else (others =>'Z');
 end Behavioral;
