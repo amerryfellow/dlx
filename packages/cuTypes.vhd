@@ -21,7 +21,7 @@ subtype OPCODE_TYPE is std_logic_vector(OPCODE_SIZE - 1 downto 0);
 	constant ITYPE_SNE	: OPCODE_TYPE	:= to_stdlogicvector(x"19")(5 downto 0);
 	constant ITYPE_SGT	: OPCODE_TYPE	:= to_stdlogicvector(x"1b")(5 downto 0);
 
-	constant MULT		: OPCODE_TYPE	:= to_stdlogicvector(x"01")(5 downto 0);
+	constant NOP		: OPCODE_TYPE	:= to_stdlogicvector(x"15")(5 downto 0);
 
 		-- Jump [ OPCODE(6) - PCOFFSET(26) ]
 	constant JTYPE_J		: OPCODE_TYPE	:= to_stdlogicvector(x"02")(5 downto 0);
@@ -51,6 +51,6 @@ subtype FUNC_TYPE is std_logic_vector(FUNC_SIZE - 1 downto 0);
 	constant RTYPE_SRL	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"06");
 	constant RTYPE_SNE	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"29");
 	constant RTYPE_SGT	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"2b");
-	constant NOP		: FUNC_TYPE		:= "000" & to_stdlogicvector(x"00");
+	constant RTYPE_NOP	: FUNC_TYPE		:= "000" & to_stdlogicvector(x"00");
 
 end cu;

@@ -212,6 +212,6 @@ architecture Behavioral of ALU is
 	--	MUL_LSB <= MUL_OUT(N-1 downto 0);
 		MULTIPLEXER: MUX4TO1 port map(int_SUM,L_OUT,flag_reg,shift_out,MUX_SEL,preout);
 	--	OUTPUT: REGISTER_FD generic map( NSUMG ) port map (preout,CLK,RESET,OUTALU);
-		OUTALU <= preout;
+		OUTALU <= preout when FUNC /= "000" else (others => '0');
 
 end Behavioral;

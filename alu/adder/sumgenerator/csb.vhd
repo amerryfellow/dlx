@@ -41,11 +41,11 @@ architecture STRUCTURAL of CSB is
 		);
 	end component;
 
-	component MUX 
+	component MUX
 		generic (
 			N:			integer	:= NMUX
 		);
-
+		
 		port (
 			A:		in	std_logic_vector(N-1 downto 0);
 			B:		in	std_logic_vector(N-1 downto 0);
@@ -54,11 +54,11 @@ architecture STRUCTURAL of CSB is
 		);
 	end component;
 begin
-	-- First RCA entity assuming carry in equal to 0
-	RCA1: RCA_GENERIC port map(A, B, '0', sum_1, co_1);
+	-- First RCA entity assuming carry in equal to 1
+	RCA1: RCA_GENERIC port map(A,B,'1',sum_2,co_1);
 
-	-- Second RCA entity assuming carry in equal to 1
-	RCA2: RCA_GENERIC port map(A, B, '1', sum_2, co_2);
+	-- Second RCA entity assuming carry in equal to 0
+	RCA2: RCA_GENERIC port map(A,B,'0',sum_1,co_2);
 
 	-- MUX selects the output of one of the RCAs, depending on
 	-- whether the carry in for the block is 1 ( sum_1 ) or 0 ( sum_2 )

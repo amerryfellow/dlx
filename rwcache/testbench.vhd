@@ -68,17 +68,17 @@ begin
 
 	pc_ref:process
 			begin
-				READNOTWRITE <= '1';
-				ADDRESS <= X"00000002";
-				INOUT_DATA <= (others => 'Z');
-				wait until STALL = '0' and clk'event and clk='1';
-				ADDRESS <= X"00000003";
-				wait until STALL = '0' and clk'event and clk='1';
-				ADDRESS <= X"00000004";
-				wait until STALL = '0' and clk'event and clk='1';
-				ADDRESS <= X"00000005";
+--				READNOTWRITE <= '1';
+--				ADDRESS <= X"00000002";
+--				INOUT_DATA <= (others => 'Z');
+--				wait until STALL = '0' and clk'event and clk='1';
+--				ADDRESS <= X"00000003";
+--				wait until STALL = '0' and clk'event and clk='1';
+--				ADDRESS <= X"00000004";
+--				wait until STALL = '0' and clk'event and clk='1';
+--				ADDRESS <= X"00000005";
 
-				wait until STALL = '0' and clk'event and clk='1';
+--				wait until STALL = '0' and clk'event and clk='1';
 				READNOTWRITE <= '0';
 				ADDRESS <= X"00000002";
 				INOUT_DATA <= X"AABBCCDD";

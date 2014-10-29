@@ -1,27 +1,146 @@
-library IEEE;
-use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
-use IEEE.std_logic_arith.all;
-use WORK.alu_types.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_misc.all;
+use work.CONSTANTS.all;
+use work.ROCACHE_PKG.all;
+use work.alu_types.all;
+use work.cu.all;
 
-entity DLX is
-	generic (
-		N : integer := numBit
-	);
+entity cu_test is
+	end cu_test;
 
-	port (
-		FUNC:			in TYPE_OP;
-		DATA1, DATA2:	in std_logic_vector(N-1 downto 0);
-		OUTALU:			out std_logic_vector(N-1 downto 0)
-	);
-end DLX;
+architecture TEST of cu_test is
+	component CU_UP is
+		port (
+			-- Inputs
+			CLK :				in std_logic;		-- Clock
+			RST :				in std_logic;		-- Reset:Active-High
+			IR  :				in std_logic_vector(31 downto 0);
+			JMP_PREDICT :		in std_logic;		-- Jump Prediction
+			JMP_REAL :			in std_logic;		-- Jump real condition
+			ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
+			WRF_STALL:			in std_logic;		-- The WRF is busy
 
-architecture GIANLUCA of DLX is
-	component MUX is
+			-- Outputs
+			PC_UPDATE:			out std_logic;
+			JUMPER:				out std_logic_vector(1 downto 0);
+			MUXRD_CTR:			out std_logic;
+			WRF_ENABLE:			out std_logic;
+			WRF_CALL:			out std_logic;
+			WRF_RET:			out std_logic;
+			WRF_RS1_ENABLE:		out std_logic;
+			WRF_RS2_ENABLE:		out std_logic;
+
+			MUXALU_CTR:			out std_logic;
+			ALU_FUNC:			out std_logic_vector(3 downto 0);
+
+			PIPEREG3_ENABLE:	out std_logic;
+			MUXC_CTR:			out std_logic;
+			MEMORY_ENABLE:		out std_logic;
+			MEMORY_RNOTW:		out std_logic;
+
+			WRF_RD_ENABLE:		out std_logic;
+			MUXWB_CTR:			out std_logic
+		);
+	end component;
+
+	component ROCACHE is
+		port (
+			CLK						: in std_logic;
+			RST						: in std_logic;  -- active high
+			ENABLE					: in std_logic;
+			ADDRESS					: in std_logic_vector(Instr_size - 1 downto 0);
+			OUT_DATA				: out std_logic_vector(Instr_size - 1 downto 0);
+			STALL					: out std_logic;
+			RAM_ISSUE				: out std_logic;
+			RAM_ADDRESS				: out std_logic_vector(Instr_size - 1 downto 0);
+			RAM_DATA				: in std_logic_vector(2*Instr_size - 1 downto 0);
+			RAM_READY				: in std_logic
+		);
+	end component;
+
+	component ROMEM is
 		generic (
-			N:			integer
+			ENTRIES		: integer := 48;
+			WORD_SIZE	: integer := 32
+		);
+		port (
+			CLK					: in std_logic;
+			RST					: in std_logic;
+			ADDRESS				: in std_logic_vector(WORD_SIZE - 1 downto 0);
+			ENABLE				: in std_logic;
+			DATA_READY			: out std_logic;
+			DATA				: out std_logic_vector(2*WORD_SIZE - 1 downto 0)
+		);
+	end component;
+
+	component INCREMENTER is
+		generic (
+			N: integer			:= 32
 		);
 
+		port (
+			A: in std_logic_vector (N-1 downto 0);
+			Y: out std_logic_vector(N-1 downto 0)
+		);
+	end component;
+
+	component RCA_GENERIC is
+		generic (
+			NBIT	:	integer	:= 32
+		);
+
+		port (
+			A :		in	std_logic_vector(NBIT-1 downto 0);
+			B :		in	std_logic_vector(NBIT-1 downto 0);
+			Ci :	in	std_logic;
+			S :		out	std_logic_vector(NBIT-1 downto 0);
+			Co :	out	std_logic
+		);
+	end component;
+
+	component SGNEXT is
+		generic (
+			INBITS:		integer;
+			OUTBITS:	integer
+		);
+
+		port(
+			DIN :		in std_logic_vector (INBITS-1 downto 0);
+			DOUT :		out std_logic_vector (OUTBITS-1 downto 0)
+		);
+	end component;
+
+	component LATCH is
+		generic (
+					N: integer := 1
+				);
+		port (
+				DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+				EN:		in std_logic;
+				RESET:	in std_logic;
+				DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
+			);
+	end component;
+
+	component REGISTER_FD is
+		generic (
+			N: integer := 32
+		);
+		port (
+			DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+			CLK:	in	std_logic;							-- Clock
+			RESET:	in	std_logic;							-- Reset
+			DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
+		);
+	end component;
+
+	component MUX is
+		generic (
+			N:			integer := 1		-- Number of bits
+		);
 		port (
 			A:		in	std_logic_vector(N-1 downto 0);
 			B:		in	std_logic_vector(N-1 downto 0);
@@ -30,61 +149,30 @@ architecture GIANLUCA of DLX is
 		);
 	end component;
 
-	component IRAM is
+	component MUX4TO1 is
 		generic (
-			RAM_DEPTH :	integer := 48;
-			I_SIZE :	integer := 32
+			N:			integer	:= NSUMG		-- Number of bits
 		);
 
 		port (
-			Rst :	in  std_logic;
-			Addr :	in  std_logic_vector(I_SIZE - 1 downto 0);
-			Dout :	out std_logic_vector(I_SIZE - 1 downto 0)
-		);
-	end component;
-
-	component PIPEREG is
-		generic (
-			N		: integer;
-			REGS	: integer
-		);
-
-		port (
-			CLK:		in	std_logic;							-- Clock
-			ENABLE:		in	std_logic;							-- Enable
-			RESET:		in	std_logic;							-- Reset
-			I:			in array(0 to REGS) of std_logic_vector(N-1 downto 0);
-			O:			out array(0 to REGS) of std_logic_vector(N-1 downto 0)
-		);
-	end component;
-
-	component SRF is
-		generic(
-			NBIT:	integer;
-			NREG:	natural
-		);
-
-		port (
-			CLK:		IN std_logic;
-			RESET:		IN std_logic;
-			ENABLE:		IN std_logic;
-
-			RNOTW:			IN std_logic;								-- Read not Write
-			ADDR:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address
-
-			DIN:		IN std_logic_vector(NBIT-1 downto 0);			-- Write data
-			DOUT:		OUT std_logic_vector(NBIT-1 downto 0);			-- Read data
+			A:		in	std_logic_vector(N-1 downto 0);
+			B:		in	std_logic_vector(N-1 downto 0);
+			C:		in	std_logic_vector(N-1 downto 0);
+			D:		in	std_logic_vector(N-1 downto 0);
+			SEL:	in	std_logic_vector(1 downto 0);
+			Y:		out	std_logic_vector(N-1 downto 0)
 		);
 	end component;
 
 	component WRF is
 		generic (
-			NBIT:	integer	:= numBit;
-			M:		integer := numGlobals;
-			F:		integer := numWindows;
-			N:		integer := numRegsPerWin;
-			NREG:	integer := numGlobals + 2*numWindows*numRegsPerWin;
-			LOGN:	integer := LOG(numRegsPerWin)
+			NBIT:		integer;
+			M:			integer;
+			F:			integer;
+			N:			integer;
+			NREG:		integer;
+			LOGNREG:	integer;
+			LOGN:		integer
 		);
 
 		port (
@@ -99,13 +187,13 @@ architecture GIANLUCA of DLX is
 			RD2:			IN std_logic;									-- Read 2
 			WR:				IN std_logic;									-- Write
 
-			ADDR_WR:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Write Address
-			ADDR_RD1:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 1
-			ADDR_RD2:		IN std_logic_vector(LOG(NREG)-1 downto 0);		-- Read Address 2
+			ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
+			ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
+			ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
 
-			DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
 			OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
 			OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
+			DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
 
 			MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
 			MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
@@ -113,237 +201,366 @@ architecture GIANLUCA of DLX is
 		);
 	end component;
 
-	component SGNEXT is
+	component ALU
 		generic (
-			INBITS:		integer;
-			OUTBITS:	integer;
-		);
-
-		port(
-			DIN :		in std_logic_vector (INBITS-1 downto 0);
-			DOUT :		out std_logic_vector (OUTBITS-1 downto 0);
-		);
-	end component;
-
-	component ALU is
-		generic (
-			N : integer
+			N : integer := NSUMG
 		);
 
 		port (
-			FUNC:			in TYPE_OP;
-			DATA1, DATA2:	in std_logic_vector(N-1 downto 0);
-			OUTALU:			out std_logic_vector(N-1 downto 0)
+			FUNC:					in TYPE_OP;
+			A, B:					in std_logic_vector(N-1 downto 0);
+			CLK: 					in std_logic;
+			RESET: 				in std_logic;
+			OUTALU:				out std_logic_vector(N-1 downto 0)
 		);
 	end component;
 
-	component INCREMENTER is
-		generic (
-			N: integer
-		);
+	signal CLK								: std_logic := '0';		-- Clock
+	signal RST								: std_logic;		-- Reset:Active-Low
 
-		port (
-			A: in std_logic_vector (N-1 downto 0);
-			Y: out std_logic_vector(N-1 downto 0)
-		);
-	end component;
+	signal IPC, PC, NPC, LPC				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal IR, IR_RF, ICACHE_IR				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal RAM_ADDRESS						: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal RAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0) := (others => '0');
+	signal ICACHE_STALL, ICACHE_STALL_NOT	: std_logic := '1';
+	signal ENABLE							: std_logic := '0';
+	signal RAM_ISSUE, RAM_READY				: std_logic := '0';
+	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
+	signal WRF_STALL						: std_logic;		-- The WRF is busy
+	signal JUMPER							: std_logic_vector(1 downto 0);
+	signal PC_UPDATE						: std_logic;
+	signal ICACHE_ENABLE					: std_logic;
+	signal MUXRD_CTR						: std_logic;
+	signal WRF_ENABLE						: std_logic;
+	signal WRF_CALL							: std_logic;
+	signal WRF_RET							: std_logic;
+	signal WRF_RS1_ENABLE					: std_logic;
+	signal WRF_RS2_ENABLE					: std_logic;
+	signal WRF_RD_ENABLE					: std_logic;
+	signal WRF_MEM_BUS						: std_logic;
+	signal WRF_MEM_CTR						: std_logic;
+	signal MUXALU_CTR						: std_logic;
+	signal ALU_FUNC							: std_logic_vector(3 downto 0);
+	signal PIPEREG3_ENABLE					: std_logic;
+	signal MUXC_CTR							: std_logic;
+	signal MEMORY_ENABLE					: std_logic;
+	signal MEMORY_RNOTW						: std_logic;
+	signal MUXWB_CTR						: std_logic;
+	signal JUMP								: std_logic;
+	signal JUMP_L							: std_logic;
 
-	signal ZERO_VECT:		std_logic_vector(N-1 downto 0);
+	-- STAGE TWO
+	signal IMMEDIATE						: std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_ADDRESS						: std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_ADDRESS_LATCHED				: std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_ADDRESS_DELAYED				: std_logic_vector(31 downto 0) := (others => '0');
+	signal JMP_CARRYOUT						: std_logic;
 
-	-- CONTROL SIGNALS
-	signal PIPEREG1_ENABLE: std_logic;
-	signal PIPEREG2_ENABLE: std_logic;
-	signal PIPEREG3_ENABLE: std_logic;
-	signal PIPEREG4_ENABLE: std_logic;
+	signal RD_TEMP							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Write Address
+	signal RD								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Write Address
+	signal RS1								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
+	signal RS2								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 2
+	signal RD_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Write data
+	signal RS1_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 1
+	signal RS1_DATA_ISZERO					: std_logic;
+	signal RS1_DATA_ISNOTZERO				: std_logic;
+	signal RS2_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 2
+	signal WRFMEMBUS						: std_logic_vector(wrfNumBit-1 downto 0);		-- Memory Data Bus
+	signal WRFMEMCTR						: std_logic_vector(10 downto 0);				-- Memory Control Signals
+	signal JUMP_RF							: std_logic;
 
-	signal MUXBOOT_CTR:		std_logic;
+	signal RS1_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
+	signal RS2_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
+	signal RS1_DATA_EX						: std_logic_vector(wrfNumBit-1 downto 0);
+	signal RS2_DATA_EX						: std_logic_vector(wrfNumBit-1 downto 0);
+	signal RD_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal IMMEDIATE_EX						: std_logic_vector(INSTR_SIZE-1 downto 0);
 
-	signal MUXRD_CTR:		std_logic;
-	signal WRF_ENABLE:		std_logic;
-	signal WRF_CALL:		std_logic;
-	signal WRF_RET:			std_logic;
-	signal WRF_RS1_ENABLE:	std_logic;
-	signal WRF_RS2_ENABLE:	std_logic;
-	signal WRF_RD_ENABLE:	std_logic;
-	signal WRF_MEM_BUS:		std_logic;
-	signal WRF_MEM_CTR:		std_logic;
-	signal WRF_BUSY:		std_logic;
-	signal CMP_EQZ:			std_logic;
+	-- STAGE THREE
 
-	signal MUXA_CTR:		std_logic;
-	signal MUXB_CTR:		std_logic;
-	signal ALU_FUNC:		std_logic_vector(1 downto 0);
+	signal FWDJ0							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal FWDJ								: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal FWDA0							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal FWDA1							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal FWDB0							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal FWDB1							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal ALU_IN1							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal ALU_IN2							: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal ALU_OUT							: std_logic_vector(WORD_SIZE-1 downto 0);
 
-	signal MUXC_CTR:		std_logic;
-	signal MEMORY_ENABLE:	std_logic;
-	signal MEMORY_RNOTW:	std_logic;
+	signal ALU_OUT_MEM						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal RD_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal RD_DATA_MEM						: std_logic_vector(wrfNumBit-1 downto 0);
+	signal IMMEDIATE_MEM					: std_logic_vector(wrfNumBit-1 downto 0);
 
-	signal MUXWB_CTR:		std_logic;
+	-- STAGE FOUR
 
-	-- FIRST STAGE
-	signal PC:				std_logic_vector(N-1 downto 0);
-	signal IR:				std_logic_vector(N-1 downto 0);
-	signal NPC:				std_logic_vector(N-1 downto 0);
-	signal IPC:				std_logic_vector(N-1 downto 0);
-	signal JMP_PREDICT:		std_logic := '0';					-- '0' NOT TAKEN ; '1' TAKEN
-	signal NPC_REAL:		std_logic_vector(N-1 downto 0);
+	signal RD_WB							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal MEM_OUT_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
 
-	-- SECOND STAGE
-	signal IR_RF:			std_logic_vector(N-1 downto 0);
-	signal NPC_RF:			std_logic_vector(N-1 downto 0);
-	signal RS1:				std_logic_vector(N-1 downto 0);
-	signal RS2:				std_logic_vector(N-1 downto 0);
-	signal RD:				std_logic_vector(N-1 downto 0);
-	signal DATAIN:			std_logic_vector(N-1 downto 0);
-	signal IM16:			std_logic_vector(N-1 downto 0);
-	signal IM:				std_logic_vector(N-1 downto 0);
-	signal REGA:			std_logic_vector(N-1 downto 0);
-	signal REGB:			std_logic_vector(N-1 downto 0);
-	signal ZERO_OUT:		std_logic;
-	signal JMP_REAL:		std_logic;
+	signal RS1_EQ_RD_MEM : std_logic;
+	signal RS1_EQ_RD_WB : std_logic;
+	signal RS1_EX_EQ_RD_MEM : std_logic;
+	signal RS1_EX_EQ_RD_WB : std_logic;
+	signal RS2_EX_EQ_RD_MEM : std_logic;
+	signal RS2_EX_EQ_RD_WB : std_logic;
 
-	-- THIRD STAGE
-	signal NPC_EX:			std_logic_vector(N-1 downto 0);
-	signal REGA_EX:			std_logic_vector(N-1 downto 0);
-	signal REGB_EX:			std_logic_vector(N-1 downto 0);
-	signal RD:				std_logic_vector(N-1 downto 0);
-	signal IM_EX:			std_logic_vector(N-1 downto 0);
-	signal RD_EX:			std_logic_vector(N-1 downto 0);
-	signal MUXA_OUT:		std_logic_vector(N-1 downto 0);
-	signal MUXB_OUT:		std_logic_vector(N-1 downto 0);
-	signal ALU_OUT:			std_logic_vector(N-1 downto 0);
+begin
 
-	-- FOURTH STAGE
-	signal NPC_MEM:			std_logic_vector(N-1 downto 0);
-	signal CMP_OUT_MEM:		std_logic_vector(N-1 downto 0);
-	signal ALU_OUT_MEM:		std_logic_vector(N-1 downto 0);
-	signal IM_MEM:			std_logic_vector(N-1 downto 0);
-	signal RD_MEM:			std_logic_vector(N-1 downto 0);
-	signal MUXC_OUT:		std_logic_vector(N-1 downto 0);
-	signal MUXPC_OUT:		std_logic_vector(N-1 downto 0);
-	signal MEM_OUT:			std_logic_vector(N-1 downto 0);
+	ICACHE_ENABLE <= not JUMP;
+	ICACHE_STALL_NOT <= not ICACHE_STALL;
+	JMP_PREDICT <= '0';						-- Always predict not taken
 
-	-- FIFTH STAGE
-	signal ALU_OUT_WB:		std_logic_vector(N-1 downto 0);
-	signal MEM_OUT_WB:		std_logic_vector(N-1 downto 0);
-	signal MUXWB_OUT:		std_logic_vector(N-1 downto 0);
-	signal RD_WB:			std_logic_vector(N-1 downto 0);
+	-- Control Unit
+	dut: CU_UP
+	port map (CLK, RST, IR, JMP_PREDICT, JUMP_RF, ICACHE_STALL, WRF_STALL, PC_UPDATE, JUMPER, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR);
 
+	-- IRAM
+	IRAM : ROMEM
+		port map (CLK, RST, RAM_ADDRESS, RAM_ISSUE, RAM_READY, RAM_DATA);
+
+	ICACHE : ROCACHE
+		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
+
+	MUX_IR : MUX
+		generic map ( 32 )
+		port map( ICACHE_IR, (others => '0'), JUMP_L, IR );
+
+--	__ INCREMENTER
+
+	NPCEVAL: INCREMENTER
+		generic map (32)
+		port map (PC, IPC);
+
+
+--	JMP_UNIT : process(JUMPER, RS1_DATA_ISZERO)
+--	begin
+--		case ( JUMPER ) is
+--			when "00" =>						-- No jump
+--				JUMP_RF <= '0';
+--
+--			when "01" =>						-- BEQZ
+--				JUMP_RF <= RS1_DATA_ISZERO;
+--
+--			when "10" =>						-- BNEQZ
+--				JUMP_RF <= not RS1_DATA_ISZERO;
+--
+--			when "11" =>						-- Jump
+--				JUMP_RF <= '1';
+--
+--			when others =>
+--				report "WHAT?!?!?";
+--		end case;
+--	end process;
+
+	JMP_MUX : MUX4TO1
+		generic map (1)
+		port map(A(0) => '0', B(0) => RS1_DATA_ISZERO, C(0) => RS1_DATA_ISNOTZERO, D(0) => '1', SEL => JUMPER, Y(0) => JUMP_RF);
+
+	JUMP_LATCH: LATCH
+		generic map(1)
+		port map(DIN(0) => JUMP_RF, EN => PC_UPDATE, RESET => RST, DOUT(0) => JUMP_L);
+
+	JUMP_DELAYER: REGISTER_FD
+		generic map (1)
+		port map(DIN(0) =>JUMP_L, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
+
+	LATCHIPLEXER : process(JMP_ADDRESS_DELAYED, NPC, PC_UPDATE, JUMP)
+		variable realNPC : std_logic_vector(INSTR_SIZE-1 downto 0);
 	begin
-		ZERO_VECT	<= (others => '0');
+		if JUMP = '1' then
+			realNPC := JMP_ADDRESS_DELAYED;
+--			report "realNPC is JMP : " & integer'image(conv_integer(unsigned(JMP_ADDRESS_DELAYED)));
+		else
+			realNPC := NPC;
+--			report "realNPC is NPC : " & integer'image(conv_integer(unsigned(NPC)));
+		end if;
 
-		-- First Pipeline register IF -> ID
-		PIPEREG1: PIPEREG
-			generic map (N, 2)
-			port map (CLK, PIPEREG1_ENABLE, RESET, (NPC, IR), (NPC_RF, IR_RF));
+		if PC_UPDATE = '1' then
+			PC <= realNPC;
+--			report "PC is realNPC : " & integer'image(conv_integer(unsigned(realNPC)));
+		else
+--			report "PC NOT UPDATE";
+		end if;
+	end process;
 
-		-- Second Pipeline register ID -> EX
-		PIPEREG2: PIPEREG
-			generic map (N, 5)
-			port map (CLK, PIPEREG2_ENABLE, RESET, (NPC_RF, REGA, REGB, IM, RD), (NPC_EX, REGA_EX, REGB_EX, IM_EX, RD_EX));
+	FAKEPIPEREG_NPC: REGISTER_FD
+		generic map (32)
+		port map(IPC, CLK, RST, NPC);
 
-		-- Third Pipeline register EX -> MEM
-		PIPEREG3: PIPEREG
-			generic map (N, 5)
-			port map (CLK, PIPEREG3_ENABLE, RESET, (NPC_EX, CMP_OUT, ALU_OUT, IM_EX, RD_EX), (NPC_MEM, CMP_OUT_MEM, ALU_OUT_MEM, IM_MEM, RD_MEM));
+	PROPAGATE_PC_IF_RF: REGISTER_FD
+		generic map (32)
+		port map (IR, CLK, RST, IR_RF);
 
-		-- Fourth Pipeline register MEM -> WB
-		PIPEREG4: PIPEREG
-			generic map (N, 2)
-			port map (CLK, PIPEREG4_ENABLE, RESET, (ALU_OUT_MEM, MEM_OUT, RD_MEM), (ALU_OUT_WB, MEM_OUT_WB, RD_WB));
+	PROPAGATE_RS1_ID_EX: REGISTER_FD
+		generic map (5)
+		port map (RS1, CLK, RST, RS1_EX);
 
-		--
-		-- FIRST STAGE
-		--
+	PROPAGATE_RS2_ID_EX: REGISTER_FD
+		generic map (5)
+		port map (RS2, CLK, RST, RS2_EX);
 
---		MUXBOOT: MUX
---			generic map (N)
---			port map (MUXPC_OUT, ZERO_VECT, RESET, PC);
+	--
+	-- STAGE TWO
+	--
 
-		NPCEVAL: INCREMENTER
-			generic map (N)
-			port map (PC, IPC);
+	EXTENDER: SGNEXT
+		generic map (16, 32)
+		port map (IR_RF(15 downto 0), IMMEDIATE);
 
-		STALLER: LATCH
-			generic map (N)
-			port map (NPC_RF, PC_UPDATE, '0', PC);
+	JMP_ADDER: RCA_GENERIC
+		generic map (32)
+		port map(NPC, IMMEDIATE, '0', JMP_ADDRESS, JMP_CARRYOUT);
 
-		ICACHE: ICACHE
-			port map(RESET, PC, IR);
+	JMP_ADDRESS_LATCH: LATCH
+		generic map (32)
+		port map(JMP_ADDRESS, PC_UPDATE, RST, JMP_ADDRESS_LATCHED);
 
-		--
-		-- SECOND STAGE
-		--
+	JMP_ADDRESS_DELAYER: REGISTER_FD
+		generic map (32)
+		port map(JMP_ADDRESS_LATCHED, CLK, RST, JMP_ADDRESS_DELAYED);
 
-		RS1		:= IR_RF(10 downto 6);
-		RS2		:= IR_RF(16 downto 11);
-		IM16	:= IR_RF(31 downto 17);
+	-- WRF
 
-		MUXBOOT: MUX
-			generic map (6)
-			port map (IR_RF(16 downto 11), IR(21 downto 17), MUXRD_CTR, RD);
+	RS1		<= IR_RF(25 downto 21);
+	RS2		<= IR_RF(20 downto 16);
+	RD_TEMP	<= IR_RF(15 downto 11);
 
-		REGISTERFILE: WRF
-			generic map (N, registerfileNumGlobals, registerfileNumWindows, registerfileNumRegsPerWin)
-			port map (CLK, RESET, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, MUXWB_OUT, REGA, REGB, WRF_MEM_BUS, WRF_MEM_CTR, WRF_BUSY);
+	REGISTERFILE: WRF
+		generic map (wrfNumBit, wrfNumGlobals, wrfNumWindows, wrfNumRegsPerWin, wrfNumRegs, wrfLogNumRegs, wrfLogNumRegsPerWin)
+		port map (CLK, RST, WRF_ENABLE, '0', '0', WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
 
-		-- WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE
+	MUXRD: MUX
+		generic map (5)
+		port map (RS2, RD_TEMP, MUXRD_CTR, RD);
 
-		SGNEXTENDER: SGNEXT
-			generic map (16, 32)
-			port map (IM16, IM);
+	RS1_EQ_RD_MEM <= not or_reduce( RS1 xor RD_MEM );
+	RS1_EQ_RD_WB <= not or_reduce( RS1 xor RD_WB );
 
-		ZERO_OUT <= not or_reduce(REGA);
+	-- JUMPER forward logic
+	MUX_FWDJ0 : MUX
+		generic map ( WORD_SIZE )
+		port map ( FWDJ0, MEM_OUT_WB, RS1_EQ_RD_MEM, FWDJ0 );
 
-		CMP: MUX
-			generic map (1)
-			port map (ZERO_OUT, not ZERO_OUT, CMP_EQZ, JMP_REAL);
+	MUX_FWDJ1 : MUX
+		generic map ( WORD_SIZE )
+		port map ( FWDJ0, MEM_OUT_WB, RS1_EQ_RD_WB, FWDJ );
 
-		--
-		-- THIRD STAGE
-		--
+	-- Comparator
 
-		MUXA: MUX
-			generic map (N)
-			port map (NPC_EX, REGA_EX, MUXA_CTR, MUXA_OUT);
+	RS1_DATA_ISZERO <= not or_reduce(FWDJ);
+	RS1_DATA_ISNOTZERO <= not RS1_DATA_ISZERO;
 
-		MUXB: MUX
-			generic map (N)
-			port map (REGB_EX, IM_EX, MUXB_CTR, MUXB_OUT);
+	-- PIPES
 
-		ALUI: ALU
-			generic map (N)
-			port map (ALU_FUNC, MUXA_OUT, MUXB_OUT, ALU_OUT)
+	PIPEREG_RD: REGISTER_FD
+		generic map (5)
+		port map(RD, CLK, RST, RD_EX);
 
-		--
-		-- FOURTH STAGE
-		--
+	PIPEREG_RS1_DATA: REGISTER_FD
+		generic map (32)
+		port map(RS1_DATA, CLK, RST, RS1_DATA_EX);
 
-		MUXC: MUX
-			generic map (N)
-			port map (CMP_OUT_MEM, ZERO_VECT, MUXC_CTR, MUXC_OUT);
+	PIPEREG_RS2_DATA: REGISTER_FD
+		generic map (32)
+		port map(RS2_DATA, CLK, RST, RS2_DATA_EX);
 
-		MUXPC: MUX
-			generic map (N)
-			port map (NPC_MEM, ALU_OUT_MEM, MUXC_OUT, MUXPC_OUT);
+	PIPEREG_IMMEDIATE: REGISTER_FD
+		generic map (32)
+		port map(IMMEDIATE, CLK, RST, IMMEDIATE_EX);
 
-		MEMORY: SRF
-			generic map (N, 1024)
-			port map(CLK, RESET, MEMORY_ENABLE, MEMORY_RNOTW, ALU_OUT_MEM, IM_MEM, MEM_OUT);
+	-- STAGE 3
 
-		--
-		-- FIFTH STAGE
-		--
+RS1_EX_EQ_RD_MEM <= not or_reduce( RS1_EX xor RD_MEM );
+RS1_EX_EQ_RD_WB <= not or_reduce( RS1_EX xor RD_WB );
+RS2_EX_EQ_RD_MEM <= not or_reduce( RS2_EX xor RD_MEM );
+RS2_EX_EQ_RD_WB <= not or_reduce( RS2_EX xor RD_WB );
 
-		MUXWB: MUX
-			generic map (N)
-			port map (ALU_OUT_WB, MEM_OUT_WB, MUXWB_CTR, MUXWB_OUT);
+	-- ALU forward logic
+--	FORWARDER1 : process(RS1_DATA_EX, RD_MEM, RD_WB, RS1_EX)
+--	begin
+--		if RS1_EX = RD_MEM then
+--			FWD1 <= ALU_OUT_MEM;
+--		elsif RS1_EX = RD_WB then
+--			FWD1 <= MEM_OUT_WB;
+--		else
+--			FWD1 <= RS1_DATA_EX;
+--		end if;
+--	end process;
 
-		POSITION	<= conv_integer(DATA2); -- Position must be lower than N-1
+	MUX_FWDA0 : MUX
+		generic map ( WORD_SIZE )
+		port map ( RS1_DATA_EX, ALU_OUT_MEM, RS1_EX_EQ_RD_MEM, FWDA0 );
 
-		P_ALU : process (FUNC, DATA1, DATA2)
-		begin
-			end case;
-		end process;
-end BEHAVIORAL;
+	MUX_FWDA1 : MUX
+		generic map ( WORD_SIZE )
+		port map ( FWDA0, MEM_OUT_WB, RS1_EX_EQ_RD_WB, FWDA1 );
 
+--	FORWARDER2 : process(RS2_DATA_EX, RD_MEM, RD_WB, RS2_EX)
+--	begin
+--		if RS2_EX = RD_MEM then
+--			FWD2 <= ALU_OUT_MEM;
+--		elsif RS2_EX = RD_WB then
+--			FWD2 <= MEM_OUT_WB;
+--		else
+--			FWD2 <= RS2_DATA_EX;
+--		end if;
+--	end process;
+
+	MUX_FWDB0 : MUX
+		generic map ( WORD_SIZE )
+		port map ( RS2_DATA_EX, ALU_OUT_MEM, RS2_EX_EQ_RD_MEM, FWDB0 );
+
+	MUX_FWDB1 : MUX
+		generic map ( WORD_SIZE )
+		port map ( FWDB0, MEM_OUT_WB, RS2_EX_EQ_RD_WB, FWDB1 );
+
+
+	-- ALU input muxes
+	MUX_ALU2 : MUX
+		generic map ( WORD_SIZE )
+		port map ( IMMEDIATE_EX, FWDB1, MUXALU_CTR, ALU_IN2 );
+
+	ALU_IN1 <= FWDA1;
+
+	-- ALU
+	EXECUTER : ALU
+		generic map ( WORD_SIZE )
+		port map ( ALU_FUNC, RS1_DATA_EX, ALU_IN2, CLK, RST, ALU_OUT );
+
+	PIPEREG_ALU_OUT: REGISTER_FD
+		generic map (32)
+		port map(ALU_OUT, CLK, RST, ALU_OUT_MEM);
+
+	PIPEREG_IMMEDIATE_EX: REGISTER_FD
+		generic map (32)
+		port map(IMMEDIATE_EX, CLK, RST, IMMEDIATE_MEM);
+
+	PIPEREG_RD_EX: REGISTER_FD
+		generic map (5)
+		port map(RD_EX, CLK, RST, RD_MEM);
+
+	-- STAGE FOUR
+
+	PIPEREG_RD_MEM: REGISTER_FD
+		generic map (5)
+		port map(RD_MEM, CLK, RST, RD_WB);
+
+	PIPEREG_ALU_OUT_MEM: REGISTER_FD
+		generic map (32)
+		port map(ALU_OUT_MEM, CLK, RST, MEM_OUT_WB);
+
+	-- STAGE FIVE
+
+	RD_DATA_WB <= MEM_OUT_WB;
+
+	-- Nothing
+
+	--  GO!
+
+	ENABLE <= '1';--,'0' after 20 ns,'1' after 30 ns,'0' after 40 ns,'1' after 50 ns,'0' after 60 ns, '1' after 70 ns;
+	CLK <= not CLK after 10 ns;
+	RST <= '1', '0' after 5 ns;
+
+end test;

@@ -177,7 +177,7 @@ begin
 				when RTYPE =>
 					--report "RTYPE, Bitch!";
 					case (FUNC) is
-						when NOP		=> INT_LUTOUT <= "00" & "000000" & "00000" & "0000" & "00";
+						when RTYPE_NOP	=> INT_LUTOUT <= "00" & "000000" & "00000" & "0000" & "00";
 						when RTYPE_ADD	=> INT_LUTOUT <= "00" & "110011" & "10001" & "0000" & "10";
 						when RTYPE_AND	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0000" & "10";
 						when RTYPE_OR	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0000" & "11";
@@ -193,7 +193,7 @@ begin
 						when others		=> --report "I don't know how to handle this Rtype function!"; null;
 					end case;
 
-				when MULT				=> INT_LUTOUT <= "00" & "010011" & "00000" & "0000" & "00";
+				when NOP				=> INT_LUTOUT <= "00" & "000000" & "00000" & "0000" & "00";
 
 				-- Jump [ OPCODE(6) - PCOFFSET(26) ]
 				when JTYPE_J			=> INT_LUTOUT <= "11" & "000000" & "00000" & "0000" & "00";
@@ -213,6 +213,7 @@ begin
 				when ITYPE_AND			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
 				when ITYPE_OR			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
 				when ITYPE_SUB			=> INT_LUTOUT <= "00" & "010010" & "00010" & "0000" & "10";
+											report "SUBI";
 				when ITYPE_XOR			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
 				when ITYPE_SGE			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
 				when ITYPE_SLE			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
