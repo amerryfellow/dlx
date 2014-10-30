@@ -69,7 +69,7 @@ begin
 					CACHE(i)(j).tag( RWCACHE_TAGSIZE - 1 downto 0 ) <= (others => '1');
 					CACHE(i)(j).valid <= '0'; -- dirty bit
 					CACHE(i)(j).counter <= 0;
-					
+
 					NOP_OUT <= '1';
 
 					for k in 0 to RWCACHE_WORDS - 1 loop
@@ -98,7 +98,6 @@ begin
 				currentLine := GET_REPLACEMENT_LINE(address_stall, CACHE);
 
 				-- Identify word index inside the line
-			--	index := conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0))); 
 
 				report "----------------- Instr " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(DATA_SIZE-1 downto RWCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
 
@@ -113,7 +112,7 @@ begin
 
 				-- Fetch the line from memory data bus and write it into the cache data
 				for i in 0 to RWCACHE_WORDS - 1 loop
-					if( READNOTWRITE = '0' and i = conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0)))) then 
+					if( READNOTWRITE = '0' and i = conv_integer(unsigned(address_stall(RWCACHE_INDEXOFFSET - 1 downto 0)))) then
 						CACHE(GET_SET(address_stall))(currentLine).words(i) <= data_stall;
 					else
 						CACHE(GET_SET(address_stall))(currentLine).words(i)

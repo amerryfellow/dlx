@@ -226,6 +226,7 @@ architecture TEST of cu_test is
 	signal ENABLE							: std_logic := '0';
 	signal RAM_ISSUE, RAM_READY				: std_logic := '0';
 	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
+	signal JMP_STALL						: std_logic;		-- The WRF is busy
 	signal WRF_STALL						: std_logic;		-- The WRF is busy
 	signal JUMPER							: std_logic_vector(1 downto 0);
 	signal PC_UPDATE						: std_logic;
@@ -299,6 +300,7 @@ architecture TEST of cu_test is
 	signal MEM_OUT_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
 
+	signal RS1_EQ_RD_EX : std_logic;
 	signal RS1_EQ_RD_MEM : std_logic;
 	signal RS1_EQ_RD_WB : std_logic;
 	signal RS1_EX_EQ_RD_MEM : std_logic;
@@ -333,27 +335,6 @@ begin
 		generic map (32)
 		port map (PC, IPC);
 
-
---	JMP_UNIT : process(JUMPER, RS1_DATA_ISZERO)
---	begin
---		case ( JUMPER ) is
---			when "00" =>						-- No jump
---				JUMP_RF <= '0';
---
---			when "01" =>						-- BEQZ
---				JUMP_RF <= RS1_DATA_ISZERO;
---
---			when "10" =>						-- BNEQZ
---				JUMP_RF <= not RS1_DATA_ISZERO;
---
---			when "11" =>						-- Jump
---				JUMP_RF <= '1';
---
---			when others =>
---				report "WHAT?!?!?";
---		end case;
---	end process;
-
 	JMP_MUX : MUX4TO1
 		generic map (1)
 		port map(A(0) => '0', B(0) => RS1_DATA_ISZERO, C(0) => RS1_DATA_ISNOTZERO, D(0) => '1', SEL => JUMPER, Y(0) => JUMP_RF);
@@ -364,7 +345,7 @@ begin
 
 	JUMP_DELAYER: REGISTER_FD
 		generic map (1)
-		port map(DIN(0) =>JUMP_L, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
+		port map(DIN(0) => JUMP_L, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
 
 	LATCHIPLEXER : process(JMP_ADDRESS_DELAYED, NPC, PC_UPDATE, JUMP)
 		variable realNPC : std_logic_vector(INSTR_SIZE-1 downto 0);
@@ -435,8 +416,11 @@ begin
 		generic map (5)
 		port map (RS2, RD_TEMP, MUXRD_CTR, RD);
 
+	RS1_EQ_RD_EX <= not or_reduce( RS1 xor RD_EX );
 	RS1_EQ_RD_MEM <= not or_reduce( RS1 xor RD_MEM );
 	RS1_EQ_RD_WB <= not or_reduce( RS1 xor RD_WB );
+
+	JMP_STALL <= RS1_EQ_RD_EX and ( not or_reduce( JUMPER xor "01" ) or not or_reduce( JUMPER xor "10" ) );
 
 	-- JUMPER forward logic
 	MUX_FWDJ0 : MUX
@@ -478,17 +462,6 @@ RS2_EX_EQ_RD_MEM <= not or_reduce( RS2_EX xor RD_MEM );
 RS2_EX_EQ_RD_WB <= not or_reduce( RS2_EX xor RD_WB );
 
 	-- ALU forward logic
---	FORWARDER1 : process(RS1_DATA_EX, RD_MEM, RD_WB, RS1_EX)
---	begin
---		if RS1_EX = RD_MEM then
---			FWD1 <= ALU_OUT_MEM;
---		elsif RS1_EX = RD_WB then
---			FWD1 <= MEM_OUT_WB;
---		else
---			FWD1 <= RS1_DATA_EX;
---		end if;
---	end process;
-
 	MUX_FWDA0 : MUX
 		generic map ( WORD_SIZE )
 		port map ( RS1_DATA_EX, ALU_OUT_MEM, RS1_EX_EQ_RD_MEM, FWDA0 );
@@ -497,17 +470,6 @@ RS2_EX_EQ_RD_WB <= not or_reduce( RS2_EX xor RD_WB );
 		generic map ( WORD_SIZE )
 		port map ( FWDA0, MEM_OUT_WB, RS1_EX_EQ_RD_WB, FWDA1 );
 
---	FORWARDER2 : process(RS2_DATA_EX, RD_MEM, RD_WB, RS2_EX)
---	begin
---		if RS2_EX = RD_MEM then
---			FWD2 <= ALU_OUT_MEM;
---		elsif RS2_EX = RD_WB then
---			FWD2 <= MEM_OUT_WB;
---		else
---			FWD2 <= RS2_DATA_EX;
---		end if;
---	end process;
-
 	MUX_FWDB0 : MUX
 		generic map ( WORD_SIZE )
 		port map ( RS2_DATA_EX, ALU_OUT_MEM, RS2_EX_EQ_RD_MEM, FWDB0 );
@@ -515,7 +477,6 @@ RS2_EX_EQ_RD_WB <= not or_reduce( RS2_EX xor RD_WB );
 	MUX_FWDB1 : MUX
 		generic map ( WORD_SIZE )
 		port map ( FWDB0, MEM_OUT_WB, RS2_EX_EQ_RD_WB, FWDB1 );
-
 
 	-- ALU input muxes
 	MUX_ALU2 : MUX

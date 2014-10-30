@@ -36,12 +36,8 @@ architecture Behavioral of ALU is
 		port(
 			SUM:	in std_logic_vector(N-1 downto 0);
 			Cout:	in std_logic;
-			ALEB: out std_logic;
-			ALB:	out std_logic;
-			AGB:	out std_logic;
-			AGEB: out std_logic;
-			ANEB:	out std_logic;
-			AEB:	out std_logic
+			mod_op: in TYPE_OP;
+			comp_result : out std_logic_vector(N-1 downto 0)
 		);
 	end component;
 
@@ -120,26 +116,27 @@ architecture Behavioral of ALU is
 	signal Cin : 						std_logic:='0';
 	signal S1,S2,S3: 					std_logic:='0';
 	signal cout: 						std_logic;
-	signal flag_reg: 					std_logic_vector(N-1 downto 0);
 	signal int_SUM: 					std_logic_vector(N-1 downto 0);
 	signal L_OUT:						std_logic_vector(N-1 downto 0);
 	signal shift_out:					std_logic_vector(N-1 downto 0);
 --	signal MUL_OUT:						std_logic_vector(2*N-1 downto 0);
 	signal MUX_SEL:						std_logic_vector(1 downto 0);
 	signal preout:						std_logic_vector(N-1 downto 0);
+	signal comp_result:				std_logic_vector(N-1 downto 0);
+	signal comp_op:					TYPE_OP;
 
 	begin
 		P_ALU : process (FUNC, A, B)
 		begin
 			case FUNC is
-				when ADD =>
+				when ALUADD =>
 --					report "Adder w/ A: " & integer'image(to_integer(unsigned(A))) & " - B: " & integer'image(to_integer(unsigned(B)));
 					int_A <= A;
 					int_B <= B;
 					Cin <= '0';
 					MUX_SEL <= "00";
 
-				when SUBT =>
+				when ALUSUB =>
 					int_A <= A;
 					int_B <= not B;
 					Cin <= '1';
@@ -148,7 +145,7 @@ architecture Behavioral of ALU is
 				--							 MUL_B <= B;
 				--						 MUX_SEL <= "100";
 				-- Bitwise
-				when BITAND =>
+				when ALUAND =>
 					logic_A <= A;
 					logic_B <= B;
 					S1 <= '0';
@@ -156,46 +153,47 @@ architecture Behavioral of ALU is
 					S3 <= '1';
 					MUX_SEL <= "01";
 
-				when BITOR		=> logic_A <= A;
+				when ALUOR		=> logic_A <= A;
 					logic_B <= B;
 					S1 <= '1';
 					S2 <= '1';
 					S3 <= '1';
 					MUX_SEL <= "01";
 
-				when BITXOR		=> logic_A <= A;
+				when ALUXOR		=> logic_A <= A;
 					logic_B <= B;
 					S1 <= '1';
 					S2 <= '1';
 					S3 <= '0';
 					MUX_SEL <= "01";
 
-				when FUNCSLL =>
+				when ALUSLL =>
 					shift_A <= A;
 					s_depth <= B(4 downto 0);
 					dir <= '1';
 					logical <= '1';
 					MUX_SEL <= "11";
 
-				when FUNCSRL =>
+				when ALUSRL =>
 					shift_A <= A;
 					s_depth <= B(4 downto 0);
 					dir <= '0';
 					logical <= '1';
 					MUX_SEL <= "11";
 
-				when FUNCSRA =>
+				when ALUSRA =>
 					shift_A <= A;
 					s_depth <= B(4 downto 0);
 					dir <= '0';
 					logical <= '0';
 					MUX_SEL <= "11";
 
-				when COMP =>
+				when ALUSEQ | ALUSLE | ALUSNE | ALUSGE | ALUSGT =>
 					int_A <= A;
 					int_B <= not B;
 					Cin <= '1';
 					MUX_SEL <= "10";
+					comp_op <= FUNC;
 				when others		=> null;
 			end case;
 		end process;
@@ -204,14 +202,13 @@ architecture Behavioral of ALU is
 		ADDER: 			P4ADDER port map (int_A,int_B,cin,int_SUM,cout);
 	--report integer'image(A) & string'(" - ") & integer'image(A_IN) & string'(" => ") & integer'image(int_SUM);
 		LOGIC: 			t2logic port map (logic_A,logic_B,S1,S2,S3,L_OUT);
-		COMPARE:		comparator port map	(int_SUM,cout,flag_reg(0),flag_reg(1),flag_reg(2),flag_reg(3),flag_reg(4),flag_reg(5));
-		flag_reg(6) <= cout nand cin; --overflow flag
-		flag_reg(N-1 downto 7) <= (others => '0');
+		COMPARE:			comparator port map	(int_SUM,cout,comp_op,comp_result);
+		--flag_reg(6) <= cout nand cin; --overflow flag
 		SHIFTER:		bshift port map (dir,logical,s_depth,shift_A,shift_out);
 	--	MULTIPLIER:	BOOTHMUL port map	(MUL_A,MUL_B,MUL_OUT);
 	--	MUL_LSB <= MUL_OUT(N-1 downto 0);
-		MULTIPLEXER: MUX4TO1 port map(int_SUM,L_OUT,flag_reg,shift_out,MUX_SEL,preout);
+		MULTIPLEXER: MUX4TO1 port map(int_SUM,L_OUT,comp_result,shift_out,MUX_SEL,preout);
 	--	OUTPUT: REGISTER_FD generic map( NSUMG ) port map (preout,CLK,RESET,OUTALU);
-		OUTALU <= preout when FUNC /= "000" else (others => '0');
+		OUTALU <= preout;
 
 end Behavioral;

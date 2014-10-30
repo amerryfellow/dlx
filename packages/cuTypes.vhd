@@ -14,12 +14,14 @@ subtype OPCODE_TYPE is std_logic_vector(OPCODE_SIZE - 1 downto 0);
 	constant ITYPE_OR	: OPCODE_TYPE	:= "001101";
 	constant ITYPE_SUB	: OPCODE_TYPE	:= "001010";
 	constant ITYPE_XOR	: OPCODE_TYPE	:= "001110";
-	constant ITYPE_SGE	: OPCODE_TYPE	:= "011101";
-	constant ITYPE_SLE	: OPCODE_TYPE	:= "011100";
 	constant ITYPE_SLL	: OPCODE_TYPE	:= "010100";
 	constant ITYPE_SRL	: OPCODE_TYPE	:= "010110";
+	constant ITYPE_SRA	: OPCODE_TYPE	:= "010111";
+	constant ITYPE_SEQ	: OPCODE_TYPE	:= "011000";
 	constant ITYPE_SNE	: OPCODE_TYPE	:= "011001";
+	constant ITYPE_SGE	: OPCODE_TYPE	:= "011101";
 	constant ITYPE_SGT	: OPCODE_TYPE	:= "011011";
+	constant ITYPE_SLE	: OPCODE_TYPE	:= "011100";
 
 	constant NOP		: OPCODE_TYPE	:= "010101";
 
@@ -45,12 +47,13 @@ subtype FUNC_TYPE is std_logic_vector(FUNC_SIZE - 1 downto 0);
 	constant RTYPE_OR	: FUNC_TYPE		:= "00000100101";
 	constant RTYPE_SUB	: FUNC_TYPE		:= "00000100010";
 	constant RTYPE_XOR	: FUNC_TYPE		:= "00000100110";
-	constant RTYPE_SGE	: FUNC_TYPE		:= "00000101101";
-	constant RTYPE_SLE	: FUNC_TYPE		:= "00000101100";
 	constant RTYPE_SLL	: FUNC_TYPE		:= "00000000100";
 	constant RTYPE_SRL	: FUNC_TYPE		:= "00000000110";
+	constant RTYPE_SRA	: FUNC_TYPE		:= "00000000111";
+	constant RTYPE_SEQ	: FUNC_TYPE		:= "00000101000";
 	constant RTYPE_SNE	: FUNC_TYPE		:= "00000101001";
+	constant RTYPE_SGE	: FUNC_TYPE		:= "00000101101";
 	constant RTYPE_SGT	: FUNC_TYPE		:= "00000101011";
+	constant RTYPE_SLE	: FUNC_TYPE		:= "00000101100";
 	constant RTYPE_NOP	: FUNC_TYPE		:= "00000000000";
-
 end cu;

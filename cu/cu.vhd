@@ -1,7 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
---use work.myTypes.all;
+use work.alu_types.all;
 use work.cu.all;
 --use work.all;
 
@@ -177,18 +177,20 @@ begin
 				when RTYPE =>
 					--report "RTYPE, Bitch!";
 					case (FUNC) is
-						when RTYPE_NOP	=> INT_LUTOUT <= "00" & "000000" & "00000" & "0000" & "00";
-						when RTYPE_ADD	=> INT_LUTOUT <= "00" & "110011" & "10001" & "0000" & "10";
-						when RTYPE_AND	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0000" & "10";
-						when RTYPE_OR	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0000" & "11";
-						when RTYPE_SUB	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0001" & "00";
-						when RTYPE_XOR	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0001" & "01";
-						when RTYPE_SGE	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0001" & "10";
-						when RTYPE_SLE	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0001" & "11";
-						when RTYPE_SLL	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0010" & "00";
-						when RTYPE_SRL	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0010" & "01";
-						when RTYPE_SNE	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0010" & "10";
-						when RTYPE_SGT	=> INT_LUTOUT <= "00" & "111011" & "01000" & "0010" & "11";
+						when RTYPE_NOP	=> INT_LUTOUT <= "00" & "000000" & "00000"		& "0000" & "10";
+						when RTYPE_ADD	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUADD & "0000" & "10";
+						when RTYPE_AND	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUAND & "0000" & "10";
+						when RTYPE_OR	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUOR	& "0000" & "10";
+						when RTYPE_SUB	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSUB & "0001" & "10";
+						when RTYPE_XOR	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUXOR & "0001" & "10";
+						when RTYPE_SLL	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSLL & "0010" & "10";
+						when RTYPE_SRL	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSRL & "0010" & "10";
+						when RTYPE_SRA	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSRA & "0010" & "10";
+						when RTYPE_SEQ	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSEQ & "0010" & "10";
+						when RTYPE_SNE	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSNE & "0010" & "10";
+						when RTYPE_SGE	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSGE & "0001" & "10";
+						when RTYPE_SGT	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSGT & "0010" & "10";
+						when RTYPE_SLE	=> INT_LUTOUT <= "00" & "110011" & "1" & ALUSLE & "0001" & "10";
 
 						when others		=> --report "I don't know how to handle this Rtype function!"; null;
 					end case;
@@ -197,7 +199,6 @@ begin
 
 				-- Jump [ OPCODE(6) - PCOFFSET(26) ]
 				when JTYPE_J			=> INT_LUTOUT <= "11" & "000000" & "00000" & "0000" & "00";
-											report "Jumping!";
 				when JTYPE_JAL			=> INT_LUTOUT <= "11" & "000000" & "00000" & "0000" & "00";
 
 				-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
@@ -209,18 +210,19 @@ begin
 				when MTYPE_SW			=> INT_LUTOUT <= "00" & "010011" & "00000" & "0000" & "00";
 
 				-- Immediate [ OPCODE(6) - RS1(5) - RD(5) - IMMEDIATE(16) ]
-				when ITYPE_ADD			=> INT_LUTOUT <= "00" & "010010" & "00001" & "0000" & "10";
-				when ITYPE_AND			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_OR			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SUB			=> INT_LUTOUT <= "00" & "010010" & "00010" & "0000" & "10";
-											report "SUBI";
-				when ITYPE_XOR			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SGE			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SLE			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SLL			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SRL			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SNE			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
-				when ITYPE_SGT			=> INT_LUTOUT <= "00" & "010010" & "00000" & "0000" & "00";
+				when ITYPE_ADD			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUADD & "0000" & "10";
+				when ITYPE_AND			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUAND & "0000" & "10";
+				when ITYPE_OR			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUOR	& "0000" & "10";
+				when ITYPE_SUB			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSUB & "0001" & "10";
+				when ITYPE_XOR			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUXOR & "0001" & "10";
+				when ITYPE_SLL			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSLL & "0010" & "10";
+				when ITYPE_SRL			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSRL & "0010" & "10";
+				when ITYPE_SRA			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSRA & "0010" & "10";
+				when ITYPE_SEQ			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSEQ & "0010" & "10";
+				when ITYPE_SNE			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSNE & "0010" & "10";
+				when ITYPE_SGE			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSGE & "0001" & "10";
+				when ITYPE_SGT			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSGT & "0010" & "10";
+				when ITYPE_SLE			=> INT_LUTOUT <= "00" & "010010" & "0" & ALUSLE & "0001" & "10";
 
 				-- Eh boh!
 				when others =>
