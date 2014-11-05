@@ -23,6 +23,7 @@ entity CU_UP is
 		JMP_PREDICT :		in std_logic;		-- Jump Prediction
 		ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
 		WRF_STALL:			in std_logic;		-- The WRF is busy
+		DCACHE_STALL:			in std_logic;		-- The rwcache is busy
 		ISZERO :			in std_logic;		-- Needed for condizional jumps
 		JMP_ADDRESS :		in std_logic_vector(31 downto 0);
 		NPC_ADDRESS :		in std_logic_vector(31 downto 0);
@@ -210,8 +211,8 @@ begin
 											JUMPER <= "10";
 
 				-- Memory [ OPCODE(6) - RDISPLACEMENT(5) - REG(5) - DISPLACEMENT(16) ]
-				when MTYPE_LW			=> INT_LUTOUT := "00" & "010011" & "00000" & "0000" & "00";
-				when MTYPE_SW			=> INT_LUTOUT := "00" & "010011" & "00000" & "0000" & "00";
+				when MTYPE_LW			=> INT_LUTOUT := "00" & "010011" & "00000" & "1111" & "00";
+				when MTYPE_SW			=> INT_LUTOUT := "00" & "010011" & "00000" & "1111" & "00";
 
 				-- Immediate [ OPCODE(6) - RS1(5) - RD(5) - IMMEDIATE(16) ]
 				when ITYPE_ADD			=> INT_LUTOUT := "00" & "010010" & "0" & ALUADD & "0000" & "10";
@@ -237,7 +238,7 @@ begin
 			-- JUMPS AND STALLS
 
 			JUMPER_DELAYED <= JUMPER;
-			STALL_DELAYED <= ICACHE_STALL or WRF_STALL;
+			STALL_DELAYED <= ICACHE_STALL or WRF_STALL or DCACHE_STALL;
 
 			JMP_REAL := (
 					( not or_reduce(JUMPER xor "01") and ISZERO ) or
@@ -256,48 +257,57 @@ begin
 			JMP_PREDICT_DELAYED <= JMP_PREDICT;
 
 			-- Any stall? Don't update PC, feed NOPS
-			if ICACHE_STALL = '1' or WRF_STALL = '1' then
-				MUXIR_CTR <= '0';
-			else
+			if ICACHE_STALL = '0' and WRF_STALL = '0' and DCACHE_STALL = '0' then
 				if JMP_REAL_LATCHED = '1' then
 					PC <= JMP_ADDRESS_LATCHED;
 					report "************************************************* LAT JMP" & integer'image(conv_integer(unsigned(JMP_ADDRESS_LATCHED)));
 				else
 					PC <= NPC_ADDRESS;
 				end if;
-
-				MUXIR_CTR <= '1';
 			end if;
 
-			-- Bubble propagation in stage 2 when
-			-- 1) Mispredicted branch
-			-- 2) Instruction cache stall
-			if JMP_REAL_LATCHED = '1' or ICACHE_STALL = '1' then
---			if ICACHE_STALL = '1' then
-				PIPE1 <= (others => '0');
+			-- If there is a stall later on in the pipe, freeze everything
+			if DCACHE_STALL = '0' then
+				-- Bubble propagation in stage 2 when
+				-- 1) Mispredicted branch
+				-- 2) Instruction cache stall
+				if JMP_REAL_LATCHED = '1' or ICACHE_STALL = '1' then
+--				if ICACHE_STALL = '1' then
+					PIPE1 <= (others => '0');
+					PIPE1_STALL <= '1';
+				else
+					PIPE1 <= INT_LUTOUT;
+					PIPE1_STALL <= '0';
+				end if;
+
+				-- Bubble propagation in stage 3 when
+				-- 1) Windowed Register File stall
+				if WRF_STALL = '1' then
+					PIPE2 <= (others => '0');
+					PIPE2_STALL <= '1';
+				else
+					PIPE2 <= PIPEREG12;
+					PIPE2_STALL <= PIPE1_STALL;
+				end if;
+
+				PIPE3_STALL <= PIPE2_STALL;
+				PIPE3 <= PIPEREG23;
+
+				PIPE4 <= PIPEREG34;
+				PIPE4_STALL <= PIPE3_STALL;
+			else
 				PIPE1_STALL <= '1';
-			else
-				PIPE1 <= INT_LUTOUT;
-				PIPE1_STALL <= '0';
-			end if;
-
-			-- Bubble propagation in stage 3 when
-			-- 1) Windowed Register File stall
-			if WRF_STALL = '1' then
-				PIPE2 <= (others => '0');
 				PIPE2_STALL <= '1';
-			else
-				PIPE2 <= PIPEREG12;
-				PIPE2_STALL <= PIPE1_STALL;
+				PIPE3_STALL <= '1';
+				PIPE4_STALL <= '1';
+
+				PIPE4 <= (others => '0');
 			end if;
 
-			PIPE3_STALL <= PIPE2_STALL;
-			PIPE4_STALL <= PIPE3_STALL;
-
-			PIPE3 <= PIPEREG23;
-			PIPE4 <= PIPEREG34;
+			MUXIR_CTR <= not DCACHE_STALL ;
 		end if;
 	end process;
+
 
 end RTL;
 

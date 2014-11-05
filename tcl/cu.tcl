@@ -10,6 +10,7 @@ vcom -reportprogress 300 -work work basics/inc.vhd
 vcom -reportprogress 300 -work work basics/latch.vhd
 vcom -reportprogress 300 -work work basics/flipflop.vhd
 vcom -reportprogress 300 -work work basics/register.vhd
+vcom -reportprogress 300 -work work basics/register_fde.vhd
 vcom -reportprogress 300 -work work basics/fulladder.vhd
 vcom -reportprogress 300 -work work basics/rca_generic.vhd
 vcom -reportprogress 300 -work work basics/sgnext.vhd

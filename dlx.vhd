@@ -21,6 +21,7 @@ architecture TEST of cu_test is
 			JMP_PREDICT :		in std_logic;		-- Jump Prediction
 			ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
 			WRF_STALL:			in std_logic;		-- The WRF is busy
+			DCACHE_STALL:			in std_logic;		-- The rwcache is busy
 			ISZERO :			in std_logic;		-- Needed for condizional jumps
 			JMP_ADDRESS :		in std_logic_vector(31 downto 0);
 			NPC_ADDRESS :		in std_logic_vector(31 downto 0);
@@ -134,12 +135,13 @@ architecture TEST of cu_test is
 			);
 	end component;
 
-	component REGISTER_FD is
+	component REGISTER_FDE is
 		generic (
 			N: integer := 32
 		);
 		port (
 			DIN:	in	std_logic_vector(N-1 downto 0);		-- Data in
+			ENABLE:	in	std_logic;							-- Enable
 			CLK:	in	std_logic;							-- Clock
 			RESET:	in	std_logic;							-- Reset
 			DOUT:	out	std_logic_vector(N-1 downto 0)		-- Data out
@@ -237,6 +239,8 @@ architecture TEST of cu_test is
 	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
 	signal JMP_STALL						: std_logic;		-- The WRF is busy
 	signal WRF_STALL						: std_logic;		-- The WRF is busy
+	signal DCACHE_STALL						: std_logic;		-- The WRF is busy
+	signal DCACHE_STALL_NOT						: std_logic;		-- The WRF is busy
 	signal JUMPER							: std_logic_vector(1 downto 0);
 	signal PC_UPDATE						: std_logic;
 	signal ICACHE_ENABLE					: std_logic;
@@ -326,10 +330,11 @@ begin
 	ICACHE_ENABLE <= not JUMP;
 	ICACHE_STALL_NOT <= not ICACHE_STALL;
 	JMP_PREDICT <= '0';						-- Always predict not taken
+	DCACHE_STALL_NOT <= not DCACHE_STALL;
 
 	-- Control Unit
 	dut: CU_UP
-	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, WRF_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, MUXIR_CTR, PC_UPDATE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
+	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, WRF_STALL, DCACHE_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, MUXIR_CTR, PC_UPDATE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
 
 	-- IRAM
 	IRAM : ROMEM
@@ -349,21 +354,21 @@ begin
 		generic map (32)
 		port map (PC, IPC);
 
-	FAKEPIPEREG_NPC: REGISTER_FD
+	FAKEPIPEREG_NPC: REGISTER_FDE
 		generic map (32)
-		port map(IPC, CLK, RST, NPC);
+		port map(IPC, MUXIR_CTR, CLK, RST, NPC);
 
-	PROPAGATE_PC_IF_RF: REGISTER_FD
+	PROPAGATE_PC_IF_RF: REGISTER_FDE
 		generic map (32)
-		port map (IR, CLK, RST, IR_RF);
+		port map (IR, MUXIR_CTR, CLK, RST, IR_RF);
 
-	PROPAGATE_RS1_ID_EX: REGISTER_FD
+	PROPAGATE_RS1_ID_EX: REGISTER_FDE
 		generic map (5)
-		port map (RS1, CLK, RST, RS1_EX);
+		port map (RS1, MUXIR_CTR, CLK, RST, RS1_EX);
 
-	PROPAGATE_RS2_ID_EX: REGISTER_FD
+	PROPAGATE_RS2_ID_EX: REGISTER_FDE
 		generic map (5)
-		port map (RS2, CLK, RST, RS2_EX);
+		port map (RS2, MUXIR_CTR, CLK, RST, RS2_EX);
 
 	--
 	-- STAGE TWO
@@ -412,28 +417,24 @@ begin
 
 	-- PIPES
 
-	PIPEREG_RD: REGISTER_FD
+	PIPEREG_RD: REGISTER_FDE
 		generic map (5)
-		port map(RD, CLK, RST, RD_EX);
+		port map(RD, MUXIR_CTR, CLK, RST, RD_EX);
 
-	PIPEREG_RS1_DATA: REGISTER_FD
+	PIPEREG_RS1_DATA: REGISTER_FDE
 		generic map (32)
-		port map(RS1_DATA, CLK, RST, RS1_DATA_EX);
+		port map(RS1_DATA, MUXIR_CTR, CLK, RST, RS1_DATA_EX);
 
-	PIPEREG_RS2_DATA: REGISTER_FD
+	PIPEREG_RS2_DATA: REGISTER_FDE
 		generic map (32)
-		port map(RS2_DATA, CLK, RST, RS2_DATA_EX);
+		port map(RS2_DATA, MUXIR_CTR, CLK, RST, RS2_DATA_EX);
 
-	PIPEREG_IMMEDIATE: REGISTER_FD
+	PIPEREG_IMMEDIATE: REGISTER_FDE
 		generic map (32)
-		port map(IMMEDIATE, CLK, RST, IMMEDIATE_EX);
+		port map(IMMEDIATE, MUXIR_CTR, CLK, RST, IMMEDIATE_EX);
 
 	-- STAGE 3
 
---	RS1_EX_EQ_RD_MEM <=	( not or_reduce( RS1_EX xor RD_MEM )) and ( or_reduce( RS1_EX ) );
---	RS1_EX_EQ_RD_WB <=	( not or_reduce( RS1_EX xor RD_WB )	) and ( or_reduce( RS1_EX ) );
---	RS2_EX_EQ_RD_MEM <=	( not or_reduce( RS2_EX xor RD_MEM )) and ( or_reduce( RS2_EX ) );
---	RS2_EX_EQ_RD_WB <=	( not or_reduce( RS2_EX xor RD_WB )	) and ( or_reduce( RS2_EX ) );
 	RS1_EX_EQ_RD_MEM <=	( not or_reduce( RS1_EX xor RD_MEM )) and ( not MEM_STALL );
 	RS1_EX_EQ_RD_WB <=	( not or_reduce( RS1_EX xor RD_WB )	) and ( not WB_STALL );
 	RS2_EX_EQ_RD_MEM <=	( not or_reduce( RS2_EX xor RD_MEM )) and ( not MEM_STALL );
@@ -468,27 +469,36 @@ begin
 		generic map ( WORD_SIZE )
 		port map ( ALU_FUNC, ALU_IN1, ALU_IN2, CLK, RST, ALU_OUT );
 
-	PIPEREG_ALU_OUT: REGISTER_FD
+	PIPEREG_ALU_OUT: REGISTER_FDE
 		generic map (32)
-		port map(ALU_OUT, CLK, RST, ALU_OUT_MEM);
+		port map(ALU_OUT, MUXIR_CTR, CLK, RST, ALU_OUT_MEM);
 
-	PIPEREG_IMMEDIATE_EX: REGISTER_FD
+	PIPEREG_IMMEDIATE_EX: REGISTER_FDE
 		generic map (32)
-		port map(IMMEDIATE_EX, CLK, RST, IMMEDIATE_MEM);
+		port map(IMMEDIATE_EX, MUXIR_CTR, CLK, RST, IMMEDIATE_MEM);
 
-	PIPEREG_RD_EX: REGISTER_FD
+	PIPEREG_RD_EX: REGISTER_FDE
 		generic map (5)
-		port map(RD_EX, CLK, RST, RD_MEM);
+		port map(RD_EX, MUXIR_CTR, CLK, RST, RD_MEM);
 
 	-- STAGE FOUR
 
-	PIPEREG_RD_MEM: REGISTER_FD
-		generic map (5)
-		port map(RD_MEM, CLK, RST, RD_WB);
+	RWCACHE_EMU : process
+	begin
+		DCACHE_STALL <= '0';
+		wait until MEMORY_ENABLE = '1';
+		DCACHE_STALL <= '1';
+		wait until clk'event and clk = '1';
+		wait until clk'event and clk = '1';
+	end process;
 
-	PIPEREG_ALU_OUT_MEM: REGISTER_FD
+	PIPEREG_RD_MEM: REGISTER_FDE
+		generic map (5)
+	port map(RD_MEM, '1', CLK, RST, RD_WB);
+
+	PIPEREG_ALU_OUT_MEM: REGISTER_FDE
 		generic map (32)
-		port map(ALU_OUT_MEM, CLK, RST, MEM_OUT_WB);
+		port map(ALU_OUT_MEM, '1', CLK, RST, MEM_OUT_WB);
 
 	-- STAGE FIVE
 
