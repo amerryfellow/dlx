@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
-use IEEE.numeric_std.all;
+use IEEE.std_logic_arith.all;
 use WORK.alu_types.all;
 
 entity ALU is
@@ -128,6 +128,14 @@ architecture Behavioral of ALU is
 	begin
 		P_ALU : process (FUNC, A, B)
 		begin
+			int_A <= (others => '0');
+			int_B <= (others => '0');
+			logic_A <= (others => '0');
+			logic_B <= (others => '0');
+			shift_A <= (others => '0');
+			comp_op <= (others => '0');
+			s_depth <= (others => '0');
+
 			case FUNC is
 				when ALUADD =>
 --					report "Adder w/ A: " & integer'image(to_integer(unsigned(A))) & " - B: " & integer'image(to_integer(unsigned(B)));
@@ -137,6 +145,7 @@ architecture Behavioral of ALU is
 					MUX_SEL <= "00";
 
 				when ALUSUB =>
+					report "Subtracting " & integer'image(conv_integer(signed(A))) & " and " & integer'image(conv_integer(signed(not B)));
 					int_A <= A;
 					int_B <= not B;
 					Cin <= '1';
@@ -197,6 +206,7 @@ architecture Behavioral of ALU is
 				when others		=> null;
 			end case;
 		end process;
+
 
 	--	report integer'image(A) & string'(" - ") & integer'image(A_IN) & string'(" => ") & integer'image(result);
 		ADDER: 			P4ADDER port map (int_A,int_B,cin,int_SUM,cout);

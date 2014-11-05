@@ -36,6 +36,5 @@ vcom -reportprogress 300 -work work dlx.vhd
 vsim work.cu_test
 add wave -position insertpoint sim:/cu_test/*
 #add wave -position insertpoint sim:/cu_test/REGISTERFILE/*
-add wave -position insertpoint sim:/cu_test/dut/LUTOUT \
-sim:/cu_test/dut/INT_PC_UPDATE
-run 1000 ns
+add wave -position insertpoint sim:/cu_test/dut/*
+run 1500 ns

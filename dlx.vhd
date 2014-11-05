@@ -19,13 +19,17 @@ architecture TEST of cu_test is
 			RST :				in std_logic;		-- Reset:Active-High
 			IR  :				in std_logic_vector(31 downto 0);
 			JMP_PREDICT :		in std_logic;		-- Jump Prediction
-			JMP_REAL :			in std_logic;		-- Jump real condition
 			ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
 			WRF_STALL:			in std_logic;		-- The WRF is busy
+			ISZERO :			in std_logic;		-- Needed for condizional jumps
+			JMP_ADDRESS :		in std_logic_vector(31 downto 0);
+			NPC_ADDRESS :		in std_logic_vector(31 downto 0);
+			PC :				out std_logic_vector(31 downto 0);
 
 			-- Outputs
+			JUMP:				out std_logic;
+			MUXIR_CTR:			out std_logic;
 			PC_UPDATE:			out std_logic;
-			JUMPER:				out std_logic_vector(1 downto 0);
 			MUXRD_CTR:			out std_logic;
 			WRF_ENABLE:			out std_logic;
 			WRF_CALL:			out std_logic;
@@ -42,7 +46,12 @@ architecture TEST of cu_test is
 			MEMORY_RNOTW:		out std_logic;
 
 			WRF_RD_ENABLE:		out std_logic;
-			MUXWB_CTR:			out std_logic
+			MUXWB_CTR:			out std_logic;
+
+			ID_STALL:			out std_logic;
+			EXE_STALL:			out std_logic;
+			MEM_STALL:			out std_logic;
+			WB_STALL:			out std_logic
 		);
 	end component;
 
@@ -248,7 +257,12 @@ architecture TEST of cu_test is
 	signal MEMORY_RNOTW						: std_logic;
 	signal MUXWB_CTR						: std_logic;
 	signal JUMP								: std_logic;
-	signal JUMP_L							: std_logic;
+	signal MUXIR_CTR						: std_logic;
+
+	signal ID_STALL							: std_logic;
+	signal EXE_STALL						: std_logic;
+	signal MEM_STALL						: std_logic;
+	signal WB_STALL							: std_logic;
 
 	-- STAGE TWO
 	signal IMMEDIATE						: std_logic_vector(31 downto 0) := (others => '0');
@@ -264,7 +278,6 @@ architecture TEST of cu_test is
 	signal RD_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Write data
 	signal RS1_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 1
 	signal RS1_DATA_ISZERO					: std_logic;
-	signal RS1_DATA_ISNOTZERO				: std_logic;
 	signal RS2_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 2
 	signal WRFMEMBUS						: std_logic_vector(wrfNumBit-1 downto 0);		-- Memory Data Bus
 	signal WRFMEMCTR						: std_logic_vector(10 downto 0);				-- Memory Control Signals
@@ -316,7 +329,7 @@ begin
 
 	-- Control Unit
 	dut: CU_UP
-	port map (CLK, RST, IR, JMP_PREDICT, JUMP_RF, ICACHE_STALL, WRF_STALL, PC_UPDATE, JUMPER, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR);
+	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, WRF_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, MUXIR_CTR, PC_UPDATE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
 
 	-- IRAM
 	IRAM : ROMEM
@@ -327,44 +340,14 @@ begin
 
 	MUX_IR : MUX
 		generic map ( 32 )
-		port map( ICACHE_IR, (others => '0'), JUMP_L, IR );
+--		port map( (others => '0'), ICACHE_IR, MUXIR_CTR, IR );
+		port map( (others => '0'), ICACHE_IR, ICACHE_STALL_NOT, IR );
 
 --	__ INCREMENTER
 
 	NPCEVAL: INCREMENTER
 		generic map (32)
 		port map (PC, IPC);
-
-	JMP_MUX : MUX4TO1
-		generic map (1)
-		port map(A(0) => '0', B(0) => RS1_DATA_ISZERO, C(0) => RS1_DATA_ISNOTZERO, D(0) => '1', SEL => JUMPER, Y(0) => JUMP_RF);
-
-	JUMP_LATCH: LATCH
-		generic map(1)
-		port map(DIN(0) => JUMP_RF, EN => PC_UPDATE, RESET => RST, DOUT(0) => JUMP_L);
-
-	JUMP_DELAYER: REGISTER_FD
-		generic map (1)
-		port map(DIN(0) => JUMP_L, CLK => CLK, RESET => RST, DOUT(0) => JUMP);
-
-	LATCHIPLEXER : process(JMP_ADDRESS_DELAYED, NPC, PC_UPDATE, JUMP)
-		variable realNPC : std_logic_vector(INSTR_SIZE-1 downto 0);
-	begin
-		if JUMP = '1' then
-			realNPC := JMP_ADDRESS_DELAYED;
---			report "realNPC is JMP : " & integer'image(conv_integer(unsigned(JMP_ADDRESS_DELAYED)));
-		else
-			realNPC := NPC;
---			report "realNPC is NPC : " & integer'image(conv_integer(unsigned(NPC)));
-		end if;
-
-		if PC_UPDATE = '1' then
-			PC <= realNPC;
---			report "PC is realNPC : " & integer'image(conv_integer(unsigned(realNPC)));
-		else
---			report "PC NOT UPDATE";
-		end if;
-	end process;
 
 	FAKEPIPEREG_NPC: REGISTER_FD
 		generic map (32)
@@ -394,14 +377,6 @@ begin
 		generic map (32)
 		port map(NPC, IMMEDIATE, '0', JMP_ADDRESS, JMP_CARRYOUT);
 
-	JMP_ADDRESS_LATCH: LATCH
-		generic map (32)
-		port map(JMP_ADDRESS, PC_UPDATE, RST, JMP_ADDRESS_LATCHED);
-
-	JMP_ADDRESS_DELAYER: REGISTER_FD
-		generic map (32)
-		port map(JMP_ADDRESS_LATCHED, CLK, RST, JMP_ADDRESS_DELAYED);
-
 	-- WRF
 
 	RS1		<= IR_RF(25 downto 21);
@@ -423,18 +398,17 @@ begin
 	JMP_STALL <= RS1_EQ_RD_EX and ( not or_reduce( JUMPER xor "01" ) or not or_reduce( JUMPER xor "10" ) );
 
 	-- JUMPER forward logic
-	MUX_FWDJ0 : MUX
-		generic map ( WORD_SIZE )
-		port map ( FWDJ0, MEM_OUT_WB, RS1_EQ_RD_MEM, FWDJ0 );
-
 	MUX_FWDJ1 : MUX
 		generic map ( WORD_SIZE )
-		port map ( FWDJ0, MEM_OUT_WB, RS1_EQ_RD_WB, FWDJ );
+		port map ( FWDJ0, ALU_OUT_MEM, RS1_EQ_RD_MEM, FWDJ );
+
+	MUX_FWDJ0 : MUX
+		generic map ( WORD_SIZE )
+		port map ( RS1_DATA, MEM_OUT_WB, RS1_EQ_RD_WB, FWDJ0 );
 
 	-- Comparator
 
 	RS1_DATA_ISZERO <= not or_reduce(FWDJ);
-	RS1_DATA_ISNOTZERO <= not RS1_DATA_ISZERO;
 
 	-- PIPES
 
@@ -456,27 +430,31 @@ begin
 
 	-- STAGE 3
 
-RS1_EX_EQ_RD_MEM <= not or_reduce( RS1_EX xor RD_MEM );
-RS1_EX_EQ_RD_WB <= not or_reduce( RS1_EX xor RD_WB );
-RS2_EX_EQ_RD_MEM <= not or_reduce( RS2_EX xor RD_MEM );
-RS2_EX_EQ_RD_WB <= not or_reduce( RS2_EX xor RD_WB );
+--	RS1_EX_EQ_RD_MEM <=	( not or_reduce( RS1_EX xor RD_MEM )) and ( or_reduce( RS1_EX ) );
+--	RS1_EX_EQ_RD_WB <=	( not or_reduce( RS1_EX xor RD_WB )	) and ( or_reduce( RS1_EX ) );
+--	RS2_EX_EQ_RD_MEM <=	( not or_reduce( RS2_EX xor RD_MEM )) and ( or_reduce( RS2_EX ) );
+--	RS2_EX_EQ_RD_WB <=	( not or_reduce( RS2_EX xor RD_WB )	) and ( or_reduce( RS2_EX ) );
+	RS1_EX_EQ_RD_MEM <=	( not or_reduce( RS1_EX xor RD_MEM )) and ( not MEM_STALL );
+	RS1_EX_EQ_RD_WB <=	( not or_reduce( RS1_EX xor RD_WB )	) and ( not WB_STALL );
+	RS2_EX_EQ_RD_MEM <=	( not or_reduce( RS2_EX xor RD_MEM )) and ( not MEM_STALL );
+	RS2_EX_EQ_RD_WB <=	( not or_reduce( RS2_EX xor RD_WB )	) and ( not WB_STALL );
 
 	-- ALU forward logic
-	MUX_FWDA0 : MUX
-		generic map ( WORD_SIZE )
-		port map ( RS1_DATA_EX, ALU_OUT_MEM, RS1_EX_EQ_RD_MEM, FWDA0 );
-
 	MUX_FWDA1 : MUX
 		generic map ( WORD_SIZE )
-		port map ( FWDA0, MEM_OUT_WB, RS1_EX_EQ_RD_WB, FWDA1 );
+		port map ( FWDA0, ALU_OUT_MEM, RS1_EX_EQ_RD_MEM, FWDA1 );
 
-	MUX_FWDB0 : MUX
+	MUX_FWDA0 : MUX
 		generic map ( WORD_SIZE )
-		port map ( RS2_DATA_EX, ALU_OUT_MEM, RS2_EX_EQ_RD_MEM, FWDB0 );
+		port map ( RS1_DATA_EX, MEM_OUT_WB, RS1_EX_EQ_RD_WB, FWDA0 );
 
 	MUX_FWDB1 : MUX
 		generic map ( WORD_SIZE )
-		port map ( FWDB0, MEM_OUT_WB, RS2_EX_EQ_RD_WB, FWDB1 );
+		port map ( FWDB0, ALU_OUT_MEM, RS2_EX_EQ_RD_MEM, FWDB1 );
+
+	MUX_FWDB0 : MUX
+		generic map ( WORD_SIZE )
+		port map ( RS2_DATA_EX, MEM_OUT_WB, RS2_EX_EQ_RD_WB, FWDB0 );
 
 	-- ALU input muxes
 	MUX_ALU2 : MUX
@@ -488,7 +466,7 @@ RS2_EX_EQ_RD_WB <= not or_reduce( RS2_EX xor RD_WB );
 	-- ALU
 	EXECUTER : ALU
 		generic map ( WORD_SIZE )
-		port map ( ALU_FUNC, RS1_DATA_EX, ALU_IN2, CLK, RST, ALU_OUT );
+		port map ( ALU_FUNC, ALU_IN1, ALU_IN2, CLK, RST, ALU_OUT );
 
 	PIPEREG_ALU_OUT: REGISTER_FD
 		generic map (32)
