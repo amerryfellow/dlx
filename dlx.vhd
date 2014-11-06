@@ -21,7 +21,7 @@ architecture TEST of cu_test is
 			JMP_PREDICT :		in std_logic;		-- Jump Prediction
 			ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
 			WRF_STALL:			in std_logic;		-- The WRF is busy
-			DCACHE_STALL:			in std_logic;		-- The rwcache is busy
+			DCACHE_STALL:		in std_logic;		-- The rwcache is busy
 			ISZERO :			in std_logic;		-- Needed for condizional jumps
 			JMP_ADDRESS :		in std_logic_vector(31 downto 0);
 			NPC_ADDRESS :		in std_logic_vector(31 downto 0);
@@ -30,7 +30,6 @@ architecture TEST of cu_test is
 			-- Outputs
 			JUMP:				out std_logic;
 			MUXIR_CTR:			out std_logic;
-			PC_UPDATE:			out std_logic;
 			MUXRD_CTR:			out std_logic;
 			WRF_ENABLE:			out std_logic;
 			WRF_CALL:			out std_logic;
@@ -41,8 +40,6 @@ architecture TEST of cu_test is
 			MUXALU_CTR:			out std_logic;
 			ALU_FUNC:			out std_logic_vector(3 downto 0);
 
-			PIPEREG3_ENABLE:	out std_logic;
-			MUXC_CTR:			out std_logic;
 			MEMORY_ENABLE:		out std_logic;
 			MEMORY_RNOTW:		out std_logic;
 
@@ -237,12 +234,9 @@ architecture TEST of cu_test is
 	signal ENABLE							: std_logic := '0';
 	signal RAM_ISSUE, RAM_READY				: std_logic := '0';
 	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
-	signal JMP_STALL						: std_logic;		-- The WRF is busy
 	signal WRF_STALL						: std_logic;		-- The WRF is busy
 	signal DCACHE_STALL						: std_logic;		-- The WRF is busy
 	signal DCACHE_STALL_NOT						: std_logic;		-- The WRF is busy
-	signal JUMPER							: std_logic_vector(1 downto 0);
-	signal PC_UPDATE						: std_logic;
 	signal ICACHE_ENABLE					: std_logic;
 	signal MUXRD_CTR						: std_logic;
 	signal WRF_ENABLE						: std_logic;
@@ -251,12 +245,8 @@ architecture TEST of cu_test is
 	signal WRF_RS1_ENABLE					: std_logic;
 	signal WRF_RS2_ENABLE					: std_logic;
 	signal WRF_RD_ENABLE					: std_logic;
-	signal WRF_MEM_BUS						: std_logic;
-	signal WRF_MEM_CTR						: std_logic;
 	signal MUXALU_CTR						: std_logic;
 	signal ALU_FUNC							: std_logic_vector(3 downto 0);
-	signal PIPEREG3_ENABLE					: std_logic;
-	signal MUXC_CTR							: std_logic;
 	signal MEMORY_ENABLE					: std_logic;
 	signal MEMORY_RNOTW						: std_logic;
 	signal MUXWB_CTR						: std_logic;
@@ -279,13 +269,11 @@ architecture TEST of cu_test is
 	signal RD								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Write Address
 	signal RS1								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
 	signal RS2								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 2
-	signal RD_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Write data
 	signal RS1_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 1
 	signal RS1_DATA_ISZERO					: std_logic;
 	signal RS2_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 2
 	signal WRFMEMBUS						: std_logic_vector(wrfNumBit-1 downto 0);		-- Memory Data Bus
 	signal WRFMEMCTR						: std_logic_vector(10 downto 0);				-- Memory Control Signals
-	signal JUMP_RF							: std_logic;
 
 	signal RS1_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
 	signal RS2_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
@@ -306,6 +294,7 @@ architecture TEST of cu_test is
 	signal ALU_IN2							: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal ALU_OUT							: std_logic_vector(WORD_SIZE-1 downto 0);
 
+	signal RS2_DATA_MEM						: std_logic_vector(wrfNumBit-1 downto 0);
 	signal ALU_OUT_MEM						: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal RD_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);
 	signal RD_DATA_MEM						: std_logic_vector(wrfNumBit-1 downto 0);
@@ -313,8 +302,11 @@ architecture TEST of cu_test is
 
 	-- STAGE FOUR
 
+	signal MEM_ADDRESS						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal MEM_DATA							: std_logic_vector(WORD_SIZE-1 downto 0);
+
 	signal RD_WB							: std_logic_vector(wrfLogNumRegs-1 downto 0);
-	signal MEM_OUT_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal MEM_DATA_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
 
 	signal RS1_EQ_RD_EX : std_logic;
@@ -334,7 +326,7 @@ begin
 
 	-- Control Unit
 	dut: CU_UP
-	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, WRF_STALL, DCACHE_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, MUXIR_CTR, PC_UPDATE, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, PIPEREG3_ENABLE, MUXC_CTR,MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
+	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, WRF_STALL, DCACHE_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, MUXIR_CTR, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALU_CTR, ALU_FUNC, MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
 
 	-- IRAM
 	IRAM : ROMEM
@@ -400,8 +392,6 @@ begin
 	RS1_EQ_RD_MEM <= not or_reduce( RS1 xor RD_MEM );
 	RS1_EQ_RD_WB <= not or_reduce( RS1 xor RD_WB );
 
-	JMP_STALL <= RS1_EQ_RD_EX and ( not or_reduce( JUMPER xor "01" ) or not or_reduce( JUMPER xor "10" ) );
-
 	-- JUMPER forward logic
 	MUX_FWDJ1 : MUX
 		generic map ( WORD_SIZE )
@@ -409,7 +399,7 @@ begin
 
 	MUX_FWDJ0 : MUX
 		generic map ( WORD_SIZE )
-		port map ( RS1_DATA, MEM_OUT_WB, RS1_EQ_RD_WB, FWDJ0 );
+		port map ( RS1_DATA, MEM_DATA_WB, RS1_EQ_RD_WB, FWDJ0 );
 
 	-- Comparator
 
@@ -447,7 +437,7 @@ begin
 
 	MUX_FWDA0 : MUX
 		generic map ( WORD_SIZE )
-		port map ( RS1_DATA_EX, MEM_OUT_WB, RS1_EX_EQ_RD_WB, FWDA0 );
+		port map ( RS1_DATA_EX, MEM_DATA_WB, RS1_EX_EQ_RD_WB, FWDA0 );
 
 	MUX_FWDB1 : MUX
 		generic map ( WORD_SIZE )
@@ -455,7 +445,7 @@ begin
 
 	MUX_FWDB0 : MUX
 		generic map ( WORD_SIZE )
-		port map ( RS2_DATA_EX, MEM_OUT_WB, RS2_EX_EQ_RD_WB, FWDB0 );
+		port map ( RS2_DATA_EX, MEM_DATA_WB, RS2_EX_EQ_RD_WB, FWDB0 );
 
 	-- ALU input muxes
 	MUX_ALU2 : MUX
@@ -481,28 +471,46 @@ begin
 		generic map (5)
 		port map(RD_EX, MUXIR_CTR, CLK, RST, RD_MEM);
 
+	PIPEREG_RS2_DATA_EX: REGISTER_FDE
+		generic map (32)
+		port map(RS2_DATA_EX, MUXIR_CTR, CLK, RST, RS2_DATA_MEM);
+
 	-- STAGE FOUR
 
-	RWCACHE_EMU : process
+	MEM_ADDRESS <= ALU_OUT_MEM;
+	MEM_DATA <= ALU_OUT_MEM when MEMORY_ENABLE = '0' else
+				RS2_DATA_MEM when MEMORY_RNOTW = '0' else
+				(others => 'Z');
+
+	RWCACHE_EMU : process(MEMORY_ENABLE, MEMORY_RNOTW, MEM_ADDRESS)
 	begin
 		DCACHE_STALL <= '0';
-		wait until MEMORY_ENABLE = '1';
-		DCACHE_STALL <= '1';
-		wait until clk'event and clk = '1';
-		wait until clk'event and clk = '1';
+		if MEMORY_ENABLE = '1' then
+
+			if MEMORY_RNOTW = '1' then
+				report "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Reading cell " & integer'image(conv_integer(unsigned(MEM_ADDRESS))) & " and pretending its value is max";
+
+				MEM_DATA <= (others => '1');
+			else
+				report "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Writing cell " & integer'image(conv_integer(unsigned(MEM_ADDRESS))) & " with value " & integer'image(conv_integer(unsigned(MEM_DATA)));
+
+			end if;
+		else
+			MEM_DATA <= (others => 'Z');
+		end if;
 	end process;
 
 	PIPEREG_RD_MEM: REGISTER_FDE
 		generic map (5)
-	port map(RD_MEM, '1', CLK, RST, RD_WB);
+		port map(RD_MEM, '1', CLK, RST, RD_WB);
 
-	PIPEREG_ALU_OUT_MEM: REGISTER_FDE
+	PIPEREG_MEM_DATA: REGISTER_FDE
 		generic map (32)
-		port map(ALU_OUT_MEM, '1', CLK, RST, MEM_OUT_WB);
+		port map(MEM_DATA, '1', CLK, RST, MEM_DATA_WB);
 
 	-- STAGE FIVE
 
-	RD_DATA_WB <= MEM_OUT_WB;
+	RD_DATA_WB <= MEM_DATA_WB;
 
 	-- Nothing
 
