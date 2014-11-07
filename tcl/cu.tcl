@@ -1,6 +1,7 @@
 vcom -reportprogress 300 -work work packages/cuTypes.vhd
 vcom -reportprogress 300 -work work packages/constants.vhd
 vcom -reportprogress 300 -work work packages/rocache.vhd
+vcom -reportprogress 300 -work work packages/rwcache.vhd
 vcom -reportprogress 300 -work work packages/aluTypes.vhd
 vcom -reportprogress 300 -work work rocache/romem.vhd
 vcom -reportprogress 300 -work work rocache/rocache.vhd
@@ -33,6 +34,8 @@ vcom -reportprogress 300 -work work alu/adder/carrygenerator/tree.vhd
 vcom -reportprogress 300 -work work alu/adder/p4adder.vhd
 vcom -reportprogress 300 -work work alu/shifter/barrelshifter.vhd
 vcom -reportprogress 300 -work work alu/alu.vhd
+vcom -reportprogress 300 -work work rwcache/rwmem.vhd
+vcom -reportprogress 300 -work work rwcache/rwcache.vhd
 vcom -reportprogress 300 -work work dlx.vhd
 vsim work.cu_test
 add wave -position insertpoint sim:/cu_test/*

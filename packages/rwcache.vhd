@@ -38,7 +38,7 @@ subtype state_type is std_logic_vector(1 downto 0);
 constant STATE_FLUSH_MEM			: state_type := "00";
 constant STATE_MISS 				: state_type := "01";
 constant STATE_COMPARE_TAGS			: state_type := "10";
-constant STATE_PUSH					: state_type := "11";
+constant STATE_WRITE_MISS					: state_type := "11";
 
 function COMPARE_TAGS(
 	x : std_logic_vector(RWCACHE_TAGSIZE - 1 downto 0 );
@@ -94,7 +94,7 @@ function GET_REPLACEMENT_LINE (
 --		count := cache( GET_SET(pc) )(i).counter;
 		to_evict := i;
 		countValid := '0';
-
+		count:=0;
 		-- Iterate
 --		while i < (RWCACHE_NUMLINES - 2) loop
 			-- Check counter value
@@ -111,7 +111,7 @@ function GET_REPLACEMENT_LINE (
 --		end loop;
 
 		-- Iterate
-		for i in 0 to RWCACHE_NUMSETS - 1 loop
+		for i in 0 to RWCACHE_NUMLINES - 1 loop
 			-- If not valid -> USE IT
 			if(cache( GET_SET(pc) )(i).valid = '0') then
 				to_evict := i;

@@ -5,6 +5,7 @@ use ieee.std_logic_arith.all;
 use ieee.std_logic_misc.all;
 use work.CONSTANTS.all;
 use work.ROCACHE_PKG.all;
+use work.RWCACHE_PKG.all;
 use work.alu_types.all;
 use work.cu.all;
 
@@ -223,16 +224,52 @@ architecture TEST of cu_test is
 		);
 	end component;
 
+	component RWCACHE is
+		port (
+			CLK						: in std_logic;
+			RST						: in std_logic;  -- active high
+			ENABLE					: in std_logic;
+			READNOTWRITE			: in std_logic;
+			ADDRESS					: in std_logic_vector(DATA_SIZE - 1 downto 0);
+			INOUT_DATA				: inout std_logic_vector(DATA_SIZE - 1 downto 0);
+			STALL					: out std_logic;
+			RAM_ISSUE				: out std_logic;
+			RAM_READNOTWRITE		: out std_logic;
+			RAM_ADDRESS				: out std_logic_vector(DATA_SIZE - 1 downto 0);
+			RAM_DATA				: inout std_logic_vector(2*DATA_SIZE - 1 downto 0);
+			RAM_READY				: in std_logic
+		);
+	end component;
+
+	component RWMEM is
+		generic (
+			file_path: string(1 to 87):= "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rwcache/hex.txt";
+			Data_size : natural := 64;
+			Instr_size: natural := 32;
+			RAM_DEPTH: 	natural := 128;
+			data_delay: natural := 2
+		);
+		port (
+			CLK   				: in std_logic;
+			RST					: in std_logic;
+			ADDR				: in std_logic_vector(Instr_size - 1 downto 0);
+			ENABLE				: in std_logic;
+			READNOTWRITE		: in std_logic;
+			DATA_READY			: out std_logic;
+			INOUT_DATA			: inout std_logic_vector(Data_size-1 downto 0)
+		);
+	end component;
+
 	signal CLK								: std_logic := '0';		-- Clock
 	signal RST								: std_logic;		-- Reset:Active-Low
 
 	signal IPC, PC, NPC, LPC				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
 	signal IR, IR_RF, ICACHE_IR				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
-	signal RAM_ADDRESS						: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
-	signal RAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0) := (others => '0');
+	signal IRAM_ADDRESS						: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
+	signal IRAM_DATA							: std_logic_vector(2*Instr_size - 1 downto 0) := (others => '0');
 	signal ICACHE_STALL, ICACHE_STALL_NOT	: std_logic := '1';
 	signal ENABLE							: std_logic := '0';
-	signal RAM_ISSUE, RAM_READY				: std_logic := '0';
+	signal IRAM_ISSUE, IRAM_READY				: std_logic := '0';
 	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
 	signal WRF_STALL						: std_logic;		-- The WRF is busy
 	signal DCACHE_STALL						: std_logic;		-- The WRF is busy
@@ -294,6 +331,7 @@ architecture TEST of cu_test is
 	signal ALU_IN2							: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal ALU_OUT							: std_logic_vector(WORD_SIZE-1 downto 0);
 
+	signal RS2_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
 	signal RS2_DATA_MEM						: std_logic_vector(wrfNumBit-1 downto 0);
 	signal ALU_OUT_MEM						: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal RD_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);
@@ -303,11 +341,18 @@ architecture TEST of cu_test is
 	-- STAGE FOUR
 
 	signal MEM_ADDRESS						: std_logic_vector(WORD_SIZE-1 downto 0);
+	signal RS2_DATA_MEM1					: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal MEM_DATA							: std_logic_vector(WORD_SIZE-1 downto 0);
 
 	signal RD_WB							: std_logic_vector(wrfLogNumRegs-1 downto 0);
 	signal MEM_DATA_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
+
+	signal DRAM_ADDRESS						: std_logic_vector(Instr_size - 1 downto 0);
+	signal DRAM_ISSUE						: std_logic;
+	signal DRAM_READNOTWRITE				: std_logic;
+	signal DRAM_READY						: std_logic;
+	signal DRAM_DATA						: std_logic_vector(2*DATA_SIZE-1 downto 0);
 
 	signal RS1_EQ_RD_EX : std_logic;
 	signal RS1_EQ_RD_MEM : std_logic;
@@ -316,6 +361,7 @@ architecture TEST of cu_test is
 	signal RS1_EX_EQ_RD_WB : std_logic;
 	signal RS2_EX_EQ_RD_MEM : std_logic;
 	signal RS2_EX_EQ_RD_WB : std_logic;
+	signal RS2_MEM_EQ_RD_WB : std_logic;
 
 begin
 
@@ -330,10 +376,10 @@ begin
 
 	-- IRAM
 	IRAM : ROMEM
-		port map (CLK, RST, RAM_ADDRESS, RAM_ISSUE, RAM_READY, RAM_DATA);
+		port map (CLK, RST, IRAM_ADDRESS, IRAM_ISSUE, IRAM_READY, IRAM_DATA);
 
 	ICACHE : ROCACHE
-		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, RAM_ISSUE, RAM_ADDRESS, RAM_DATA, RAM_READY);
+		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, IRAM_ISSUE, IRAM_ADDRESS, IRAM_DATA, IRAM_READY);
 
 	MUX_IR : MUX
 		generic map ( 32 )
@@ -475,30 +521,28 @@ begin
 		generic map (32)
 		port map(RS2_DATA_EX, MUXIR_CTR, CLK, RST, RS2_DATA_MEM);
 
+	PIPEREG_RS2_EX: REGISTER_FDE
+		generic map (5)
+		port map(RS2_EX, MUXIR_CTR, CLK, RST, RS2_MEM);
+
 	-- STAGE FOUR
 
 	MEM_ADDRESS <= ALU_OUT_MEM;
 	MEM_DATA <= ALU_OUT_MEM when MEMORY_ENABLE = '0' else
-				RS2_DATA_MEM when MEMORY_RNOTW = '0' else
+				RS2_DATA_MEM1 when MEMORY_RNOTW = '0' else
 				(others => 'Z');
 
-	RWCACHE_EMU : process(MEMORY_ENABLE, MEMORY_RNOTW, MEM_ADDRESS)
-	begin
-		DCACHE_STALL <= '0';
-		if MEMORY_ENABLE = '1' then
+	RS2_MEM_EQ_RD_WB <= (not or_reduce( RS2_MEM xor RD_WB ) and ( not WB_STALL ));
 
-			if MEMORY_RNOTW = '1' then
-				report "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Reading cell " & integer'image(conv_integer(unsigned(MEM_ADDRESS))) & " and pretending its value is max";
+	MUX_RS2_DATA_MEM1 : MUX
+		generic map ( WORD_SIZE )
+		port map ( RS2_DATA_MEM, MEM_DATA_WB, RS2_MEM_EQ_RD_WB, RS2_DATA_MEM1 );
 
-				MEM_DATA <= (others => '1');
-			else
-				report "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Writing cell " & integer'image(conv_integer(unsigned(MEM_ADDRESS))) & " with value " & integer'image(conv_integer(unsigned(MEM_DATA)));
+	DCACHE : RWCACHE
+		port map ( CLK, RST, MEMORY_ENABLE, MEMORY_RNOTW, MEM_ADDRESS, MEM_DATA, DCACHE_STALL, DRAM_ISSUE, DRAM_READNOTWRITE, DRAM_ADDRESS, DRAM_DATA, DRAM_READY );
 
-			end if;
-		else
-			MEM_DATA <= (others => 'Z');
-		end if;
-	end process;
+	DRAM : RWMEM
+		port map ( CLK, RST, DRAM_ADDRESS, DRAM_ISSUE, DRAM_READNOTWRITE, DRAM_READY, DRAM_DATA );
 
 	PIPEREG_RD_MEM: REGISTER_FDE
 		generic map (5)
