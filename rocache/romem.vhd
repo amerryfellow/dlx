@@ -10,10 +10,11 @@ use work.ROCACHE_PKG.all;
 -- file name is "test.asm.mem"
 entity ROMEM is
 	generic (
-		file_path	: string(1 to 87) := "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt";
+		file_path	: -- string(1 to 37) := "C://DLX//dlx-master//rocache//hex.txt";
+					string(1 to 87) := "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt";
 		ENTRIES		: integer := 48;
 		WORD_SIZE	: integer := 32;
-		data_delay	: integer := 2
+		data_delay	: natural := 2
 	);
 	port (
 		CLK					: in std_logic;
@@ -30,11 +31,12 @@ architecture Behavioral of ROMEM is
 	signal Memory : RAM;
 	signal valid : std_logic;
 	signal idout : std_logic_vector(2*WORD_SIZE-1 downto 0);
+	signal count: integer range 0 to (data_delay + 1);
 
 begin
 
 	-- purpose: This process is in charge of filling the Instruction RAM with the firmware
-	FILL_MEM_P: process (RST)
+	FILL_MEM_P: process (RST,CLK,ENABLE,ADDRESS)
 		file mem_fp: text;
 		variable file_line : line;
 		variable index : integer := 0;
@@ -53,32 +55,26 @@ begin
 				Memory(index) <= conv_integer(unsigned(tmp_data_u));
 				index := index + 1;
 			end loop;
+		count <= 0;	
+		elsif CLK'event and clk= '1' then
+			if (ENABLE = '1' ) then
+				count <= count + 1; 
+				if (count = data_delay) then
+					count <= 0;
+					valid <= '1';
+					idout <=
+					conv_std_logic_vector(Memory(conv_integer(unsigned(ADDRESS))+1),WORD_SIZE) &
+					conv_std_logic_vector(Memory(conv_integer(unsigned(ADDRESS))),WORD_SIZE
+					);
+				end if;
+			else
+				count <= 0;
+				valid <= '0';
+			end if;
 		end if;
-	end process FILL_MEM_P;
-
-	-- IRAM
-	manager : process
-	begin
-		wait until clk'event and clk = '1';
-		valid <= '0';
-
-		if rst = '1' then
-			valid <= '0';
-		elsif ENABLE = '1' then
-
-			-- Simulate access + read time
-			wait until clk'event and clk = '1';
-			wait until clk'event and clk = '1';
-
-			-- I gots the data ready!
-			valid <= '1';
-			idout <=
-				conv_std_logic_vector(Memory(conv_integer(unsigned(ADDRESS))+1),WORD_SIZE) &
-				conv_std_logic_vector(Memory(conv_integer(unsigned(ADDRESS))),WORD_SIZE
-			);
-		end if;
-	end process;
+end process FILL_MEM_P;
 
 	DATA_READY <= valid;
 	DATA <= idout when valid = '1' else (others => 'Z');
+	
 end Behavioral;

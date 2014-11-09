@@ -37,8 +37,9 @@ vcom -reportprogress 300 -work work alu/alu.vhd
 vcom -reportprogress 300 -work work rwcache/rwmem.vhd
 vcom -reportprogress 300 -work work rwcache/rwcache.vhd
 vcom -reportprogress 300 -work work dlx.vhd
-vsim work.cu_test
-add wave -position insertpoint sim:/cu_test/*
-#add wave -position insertpoint sim:/cu_test/REGISTERFILE/*
-add wave -position insertpoint sim:/cu_test/dut/*
+vcom -reportprogress 300 -work work testbench.vhd
+vsim work.DLX_TB
+add wave -position insertpoint sim:/DLX_TB/*
+add wave -position insertpoint sim:/DLX_TB/GIANLUCA/*
+add wave -position insertpoint sim:/DLX_TB/DRAM/*
 run 1500 ns

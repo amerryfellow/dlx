@@ -140,7 +140,7 @@ begin
 --							report string'("STATE: ") & integer'image(conv_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(conv_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(conv_integer(conv_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
 
 							HIT := '0'; -- Reset HIT
-
+							ICACHE(GET_SET(ADDRESS))(i).counter <= ICACHE(GET_SET(ADDRESS))(i).counter + 1;
 							-- Print out the instruction
 							INT_OUT_DATA <= ICACHE(
 								GET_SET(ADDRESS))(lineIndex).words(

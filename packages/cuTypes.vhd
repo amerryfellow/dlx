@@ -33,6 +33,7 @@ subtype OPCODE_TYPE is std_logic_vector(OPCODE_SIZE - 1 downto 0);
 		-- Jump [ OPCODE(6) - PCOFFSET(26) ]
 	constant JTYPE_J		: OPCODE_TYPE	:= "000010";
 	constant JTYPE_JAL		: OPCODE_TYPE	:= "000011";
+	constant JTYPE_JR		: OPCODE_TYPE	:= "010010";
 
 		-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
 	constant BTYPE_BEQZ		: OPCODE_TYPE	:= "000100";
