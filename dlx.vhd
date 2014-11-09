@@ -39,7 +39,7 @@ architecture TEST of cu_test is
 			WRF_RS2_ENABLE:		out std_logic;
 
 			MUXALU_CTR:			out std_logic;
-			ALU_FUNC:			out std_logic_vector(3 downto 0);
+			ALU_FUNC:			out std_logic_vector(4 downto 0);
 
 			MEMORY_ENABLE:		out std_logic;
 			MEMORY_RNOTW:		out std_logic;
@@ -70,19 +70,21 @@ architecture TEST of cu_test is
 	end component;
 
 	component ROMEM is
-		generic (
-			ENTRIES		: integer := 48;
-			WORD_SIZE	: integer := 32
-		);
-		port (
-			CLK					: in std_logic;
-			RST					: in std_logic;
-			ADDRESS				: in std_logic_vector(WORD_SIZE - 1 downto 0);
-			ENABLE				: in std_logic;
-			DATA_READY			: out std_logic;
-			DATA				: out std_logic_vector(2*WORD_SIZE - 1 downto 0)
-		);
-	end component;
+	generic (
+		file_path	: string(1 to 87) := "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt";
+		ENTRIES		: integer := 48;
+		WORD_SIZE	: integer := 32;
+		data_delay	: natural := 2
+	);
+	port (
+		CLK					: in std_logic;
+		RST					: in std_logic;
+		ADDRESS				: in std_logic_vector(WORD_SIZE - 1 downto 0);
+		ENABLE				: in std_logic;
+		DATA_READY			: out std_logic;
+		DATA					: out std_logic_vector(2*WORD_SIZE - 1 downto 0)
+	);
+end component;
 
 	component INCREMENTER is
 		generic (
@@ -252,7 +254,7 @@ architecture TEST of cu_test is
 		port (
 			CLK   				: in std_logic;
 			RST					: in std_logic;
-			ADDR				: in std_logic_vector(Instr_size - 1 downto 0);
+			ADDR					: in std_logic_vector(Instr_size - 1 downto 0);
 			ENABLE				: in std_logic;
 			READNOTWRITE		: in std_logic;
 			DATA_READY			: out std_logic;
@@ -283,7 +285,7 @@ architecture TEST of cu_test is
 	signal WRF_RS2_ENABLE					: std_logic;
 	signal WRF_RD_ENABLE					: std_logic;
 	signal MUXALU_CTR						: std_logic;
-	signal ALU_FUNC							: std_logic_vector(3 downto 0);
+	signal ALU_FUNC							: std_logic_vector(4 downto 0);
 	signal MEMORY_ENABLE					: std_logic;
 	signal MEMORY_RNOTW						: std_logic;
 	signal MUXWB_CTR						: std_logic;

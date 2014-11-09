@@ -41,7 +41,7 @@ entity CU_UP is
 		WRF_RS2_ENABLE:		out std_logic;
 
 		MUXALU_CTR:			out std_logic;
-		ALU_FUNC:			out std_logic_vector(3 downto 0);
+		ALU_FUNC:			out std_logic_vector(4 downto 0);
 
 		MEMORY_ENABLE:		out std_logic;
 		MEMORY_RNOTW:		out std_logic;
@@ -57,17 +57,17 @@ entity CU_UP is
 end CU_UP;
 
 architecture RTL of CU_UP is
-	signal LUTOUT : std_logic_vector(14 downto 0);
+	signal LUTOUT : std_logic_vector(15 downto 0);
 
-	signal PIPE1	: std_logic_vector(14 downto 0) := (others => '0');
-	signal PIPE2	: std_logic_vector(8 downto 0) := (others => '0');
+	signal PIPE1	: std_logic_vector(15 downto 0) := (others => '0');
+	signal PIPE2	: std_logic_vector(9 downto 0) := (others => '0');
 	signal PIPE3	: std_logic_vector(3 downto 0) := (others => '0');
 	signal PIPE4	: std_logic_vector(1 downto 0) := (others => '0');
 
 	signal JUMPER	: std_logic_vector(1 downto 0);
 	signal JUMPER_DELAYED	: std_logic_vector(1 downto 0);
 
-	signal PIPEREG12 : std_logic_vector(8 downto 0) := (others => '0');
+	signal PIPEREG12 : std_logic_vector(9 downto 0) := (others => '0');
 	signal PIPEREG23 : std_logic_vector(3 downto 0) := (others => '0');
 	signal PIPEREG34 : std_logic_vector(1 downto 0) := (others => '0');
 
@@ -93,7 +93,7 @@ begin
 
 	-- Pipelines
 --	PIPE1		<= LUTOUT;
-	PIPEREG12	<= PIPE1(8 downto 0);
+	PIPEREG12	<= PIPE1(9 downto 0);
 	PIPEREG23	<= PIPE2(3 downto 0);
 	PIPEREG34	<= PIPE3(1 downto 0);
 
@@ -107,16 +107,16 @@ begin
 	WB_STALL	<= PIPE4_STALL;
 
 	-- STAGE ID
-	MUXRD_CTR			<= PIPE1(14);
-	WRF_ENABLE			<= PIPE1(13);
-	WRF_CALL			<= PIPE1(12);
-	WRF_RET				<= PIPE1(11);
-	WRF_RS1_ENABLE		<= PIPE1(10);
-	WRF_RS2_ENABLE		<= PIPE1(9);
+	MUXRD_CTR			<= PIPE1(15);
+	WRF_ENABLE			<= PIPE1(14);
+	WRF_CALL			<= PIPE1(13);
+	WRF_RET				<= PIPE1(12);
+	WRF_RS1_ENABLE		<= PIPE1(11);
+	WRF_RS2_ENABLE		<= PIPE1(10);
 
 	--Stage EXE
-	MUXALU_CTR			<= PIPE2(8);
-	ALU_FUNC			<= PIPE2(7 downto 4);
+	MUXALU_CTR			<= PIPE2(9);
+	ALU_FUNC			<= PIPE2(8 downto 4);
 
 	-- Stage MEM
 	MEMORY_ENABLE		<= PIPE3(3);
@@ -144,11 +144,11 @@ begin
 		variable JMP_REAL : std_logic;
 		variable JMP_REAL_LATCHED : std_logic;
 		variable JMP_ADDRESS_LATCHED : std_logic_vector( 31 downto 0 );
-		variable INT_LUTOUT : std_logic_vector( 14 downto 0 );
+		variable INT_LUTOUT : std_logic_vector( 15 downto 0 );
 	begin
 		-- If reset OR stall -> feed NOPS
 		if RST = '1' then
-			INT_LUTOUT := "000000" & "00000" & "00" & "00";
+			INT_LUTOUT := "000000" & "000000" & "00" & "00";
 			PIPE2 <= (others => '0');
 			PIPE3 <= (others => '0');
 			PIPE4 <= (others => '0');
@@ -164,7 +164,7 @@ begin
 				when RTYPE =>
 					--report "RTYPE, Bitch!";
 					case (FUNC) is
-						when RTYPE_NOP	=> INT_LUTOUT := "000000" & "00000"		 & "00" & "00";
+						when RTYPE_NOP	=> INT_LUTOUT := "000000" & "000000"	 & "00" & "00";
 						when RTYPE_ADD	=> INT_LUTOUT := "110011" & "1" & ALUADD & "00" & "10";
 						when RTYPE_AND	=> INT_LUTOUT := "110011" & "1" & ALUAND & "00" & "10";
 						when RTYPE_OR	=> INT_LUTOUT := "110011" & "1" & ALUOR  & "00" & "10";
@@ -178,22 +178,27 @@ begin
 						when RTYPE_SGE	=> INT_LUTOUT := "110011" & "1" & ALUSGE & "00" & "10";
 						when RTYPE_SGT	=> INT_LUTOUT := "110011" & "1" & ALUSGT & "00" & "10";
 						when RTYPE_SLE	=> INT_LUTOUT := "110011" & "1" & ALUSLE & "00" & "10";
+						when RTYPE_SLT	=> INT_LUTOUT := "110011" & "1" & ALUSLT & "00" & "10";
+						when RTYPE_SGEU	=> INT_LUTOUT := "110011" & "1" & ALUSGEU & "00" & "10";
+						when RTYPE_SGTU	=> INT_LUTOUT := "110011" & "1" & ALUSGTU & "00" & "10";
+						when RTYPE_SLEU	=> INT_LUTOUT := "110011" & "1" & ALUSLEU & "00" & "10";
+						when RTYPE_SLTU	=> INT_LUTOUT := "110011" & "1" & ALUSLTU & "00" & "10";
 
 						when others		=> --report "I don't know how to handle this Rtype function!"; null;
 					end case;
 
-				when NOP				=> INT_LUTOUT := "000000" & "00000" & "00" & "00";
+				when NOP				=> INT_LUTOUT := "000000" & "000000" & "00" & "00";
 
 				-- Jump [ OPCODE(6) - PCOFFSET(26) ]
-				when JTYPE_J			=> INT_LUTOUT := "000000" & "00000" & "00" & "00";
+				when JTYPE_J			=> INT_LUTOUT := "000000" & "000000" & "00" & "00";
 											JUMPER <= "11";
-				when JTYPE_JAL			=> INT_LUTOUT := "000000" & "00000" & "00" & "00";
+				when JTYPE_JAL			=> INT_LUTOUT := "000000" & "000000" & "00" & "00";
 											JUMPER <= "11";
 
 				-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
-				when BTYPE_BEQZ			=> INT_LUTOUT := "010011" & "00000" & "00" & "00";
+				when BTYPE_BEQZ			=> INT_LUTOUT := "010011" & "000000" & "00" & "00";
 											JUMPER <= "01";
-				when BTYPE_BNEZ			=> INT_LUTOUT := "010011" & "00000" & "00" & "00";
+				when BTYPE_BNEZ			=> INT_LUTOUT := "010011" & "000000" & "00" & "00";
 											JUMPER <= "10";
 
 				-- Memory [ OPCODE(6) - RDISPLACEMENT(5) - REG(5) - DISPLACEMENT(16) ]
@@ -214,6 +219,11 @@ begin
 				when ITYPE_SGE			=> INT_LUTOUT := "010010" & "0" & ALUSGE & "00" & "10";
 				when ITYPE_SGT			=> INT_LUTOUT := "010010" & "0" & ALUSGT & "00" & "10";
 				when ITYPE_SLE			=> INT_LUTOUT := "010010" & "0" & ALUSLE & "00" & "10";
+				when ITYPE_SLT			=> INT_LUTOUT := "010010" & "0" & ALUSLT & "00" & "10";
+				when ITYPE_SGEU			=> INT_LUTOUT := "010010" & "0" & ALUSGEU & "00" & "10";
+				when ITYPE_SGTU			=> INT_LUTOUT := "010010" & "0" & ALUSGTU & "00" & "10";
+				when ITYPE_SLEU			=> INT_LUTOUT := "010010" & "0" & ALUSLEU & "00" & "10";
+				when ITYPE_SLTU			=> INT_LUTOUT := "010010" & "0" & ALUSLTU & "00" & "10";
 
 				-- Eh boh!
 				when others =>

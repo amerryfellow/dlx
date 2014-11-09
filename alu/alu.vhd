@@ -26,6 +26,7 @@ architecture Behavioral of ALU is
 			B:		in 	std_logic_vector(N-1 downto 0);
 			Cin:	in 	std_logic;
 			S:		out std_logic_vector(N-1 downto 0);
+			OVERFLOW: out std_logic;
 			Cout:	out std_logic
 		);
 	end component;
@@ -36,6 +37,7 @@ architecture Behavioral of ALU is
 		port(
 			SUM:	in std_logic_vector(N-1 downto 0);
 			Cout:	in std_logic;
+			OVERFLOW: in std_logic;
 			mod_op: in TYPE_OP;
 			comp_result : out std_logic_vector(N-1 downto 0)
 		);
@@ -124,18 +126,12 @@ architecture Behavioral of ALU is
 	signal preout:						std_logic_vector(N-1 downto 0);
 	signal comp_result:				std_logic_vector(N-1 downto 0);
 	signal comp_op:					TYPE_OP;
-
+	signal overflow: 					std_logic;
 	begin
 		P_ALU : process (FUNC, A, B)
 		begin
-			int_A <= (others => '0');
-			int_B <= (others => '0');
-			logic_A <= (others => '0');
-			logic_B <= (others => '0');
-			shift_A <= (others => '0');
-			comp_op <= (others => '0');
-			s_depth <= (others => '0');
-
+			
+			
 			case FUNC is
 				when ALUADD =>
 --					report "Adder w/ A: " & integer'image(to_integer(unsigned(A))) & " - B: " & integer'image(to_integer(unsigned(B)));
@@ -197,22 +193,33 @@ architecture Behavioral of ALU is
 					logical <= '0';
 					MUX_SEL <= "11";
 
-				when ALUSEQ | ALUSLE | ALUSNE | ALUSGE | ALUSGT =>
+				when ALUSEQ | ALUSLE | ALUSNE | ALUSGE | ALUSGT |
+					  ALUSLT | ALUSLEU | ALUSLTU | ALUSGEU | ALUSGTU =>
 					int_A <= A;
 					int_B <= not B;
 					Cin <= '1';
 					MUX_SEL <= "10";
 					comp_op <= FUNC;
-				when others		=> null;
+				when others		=> 
+				int_A <= (others => '0');
+				int_B <= (others => '0');
+				logic_A <= (others => '0');
+				logic_B <= (others => '0');
+				shift_A <= (others => '0');
+				comp_op <= (others => '0');
+				s_depth <= (others => '0');
+				Cin <= '0';
+				logical <= '0';
+				dir <= '0';
 			end case;
 		end process;
 
 
 	--	report integer'image(A) & string'(" - ") & integer'image(A_IN) & string'(" => ") & integer'image(result);
-		ADDER: 			P4ADDER port map (int_A,int_B,cin,int_SUM,cout);
+		ADDER: 			P4ADDER port map (int_A,int_B,cin,int_SUM,overflow,cout);
 	--report integer'image(A) & string'(" - ") & integer'image(A_IN) & string'(" => ") & integer'image(int_SUM);
 		LOGIC: 			t2logic port map (logic_A,logic_B,S1,S2,S3,L_OUT);
-		COMPARE:			comparator port map	(int_SUM,cout,comp_op,comp_result);
+		COMPARE:			comparator port map	(int_SUM,cout,overflow,comp_op,comp_result);
 		--flag_reg(6) <= cout nand cin; --overflow flag
 		SHIFTER:		bshift port map (dir,logical,s_depth,shift_A,shift_out);
 	--	MULTIPLIER:	BOOTHMUL port map	(MUL_A,MUL_B,MUL_OUT);

@@ -14,7 +14,7 @@ entity P4ADDER is
 		B:			in	std_logic_vector(N-1 downto 0);
 		Cin:		in	std_logic;
 		S:			out	std_logic_vector(N-1 downto 0);
-		
+		OVERFLOW: out std_logic;
 		-- In case we need it,and it is only used for debugging the correct behaviour of the adder 
 		Cout:		out	std_logic
 	);
@@ -67,7 +67,7 @@ begin
 	-- As C32 is not needed/ '0' is the first carry in (without propagate)
 	Ci			<= CARRY((N/4)-2 downto 0) & Cin;
 	Cout		<= CARRY((N/4)-1);
-
+	OVERFLOW <= CARRY((N/4)-1) XOR  CARRY((N/4)-2);
 	SUM_GENERATOR: SUMGENERATOR
 		generic map(N , N/4)
 		port map(A,B,Ci,S);

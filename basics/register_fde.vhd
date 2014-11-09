@@ -22,20 +22,21 @@ architecture ASYNCHRONOUS of REGISTER_FDE is
 	component FLIPFLOP
 		port (
 			D:		in	std_logic;
+			ENABLE : in std_logic;
 			CK:		in	std_logic;
 			RESET:	in	std_logic;
 			Q:		out	std_logic
 		);
 	end component;
 
-	signal INT_DOUT : std_logic_vector(N-1 downto 0);
+
 
 	begin
 		REG_GEN_A : for i in 0 to N-1 generate
 			ASYNC_REG : FLIPFLOP
-				port map(DIN(i), CLK, RESET, INT_DOUT(i));
+				port map(DIN(i),ENABLE, CLK, RESET, DOUT(i));
 		end generate;
 
-		DOUT <= INT_DOUT when ENABLE = '1';
+		
 end ASYNCHRONOUS;
 

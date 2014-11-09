@@ -10,8 +10,10 @@ use work.ROCACHE_PKG.all;
 -- file name is "test.asm.mem"
 entity ROMEM is
 	generic (
+		file_path	: string(1 to 87) := "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt";
 		ENTRIES		: integer := 48;
-		WORD_SIZE	: integer := 32
+		WORD_SIZE	: integer := 32;
+		data_delay	: integer := 2
 	);
 	port (
 		CLK					: in std_logic;
@@ -41,7 +43,7 @@ begin
 		if (Rst = '1') then
 			file_open(
 				mem_fp,
-				"/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt",
+				file_path,
 				READ_MODE
 			);
 
