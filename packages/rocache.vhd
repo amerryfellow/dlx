@@ -4,7 +4,7 @@ use IEEE.STD_LOGIC_ARITH.all;
 use ieee.std_logic_misc.all;
 
 package ROCACHE_PKG is
-constant ROCACHE_WAYS			: natural := 2;
+constant ROCACHE_WAYS			: natural := 4;
 constant ROCACHE_NUMSETS		: natural := 4;  --Depth of ICache
 constant ROCACHE_WORDS			: natural := 2;
 constant INSTR_SIZE 			: natural := 32;

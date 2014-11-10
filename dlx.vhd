@@ -259,6 +259,7 @@ architecture structural of DLX is
 	signal WRF_ENABLE						: std_logic;
 	signal WRF_CALL							: std_logic;
 	signal WRF_RET							: std_logic;
+	signal WRF_RET_R31						: std_logic;
 	signal WRF_RS1_ENABLE					: std_logic;
 	signal WRF_RS2_ENABLE					: std_logic;
 	signal WRF_RD_ENABLE					: std_logic;
@@ -403,10 +404,11 @@ begin
 	RS1		<= IR_RF(25 downto 21);
 	RS2		<= IR_RF(20 downto 16);
 	RD_TEMP	<= IR_RF(15 downto 11);
+	WRF_RET_R31 <= WRF_RET and ( not or_reduce( RS1 xor "11111" ) );
 
 	REGISTERFILE: WRF
 		generic map (wrfNumBit, wrfNumGlobals, wrfNumWindows, wrfNumRegsPerWin, wrfNumRegs, wrfLogNumRegs, wrfLogNumRegsPerWin)
-		port map (CLK, RST, WRF_ENABLE, '0', '0', WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
+		port map (CLK, RST, WRF_ENABLE, WRF_CALL, WRF_RET_R31, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
 
 	MUX_RD: MUX
 		generic map (5)

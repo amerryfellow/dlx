@@ -7,7 +7,9 @@ library std;
 use std.textio.all;
 
 entity RWMEM is
-	generic(	file_path: string(1 to 87):= "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rwcache/hex.txt";
+	generic(
+			file_path: string(1 to 87):= "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rwcache/hex.txt";
+			file_path_init: string(1 to 92):= "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rwcache/hex_init.txt";
 			Data_size : natural := 64;
 			Instr_size: natural := 32;
 			RAM_DEPTH: 	natural := 128;
@@ -33,8 +35,8 @@ architecture beh of RWMEM is
 
 	procedure rewrite_contenent(data: in DRAMtype; path_file: string) is
 		variable index: natural range 0 to RAM_DEPTH;
-	file wr_file: text;
-	variable line_in: line;
+		file wr_file: text;
+		variable line_in: line;
 	begin
 		index:=0;
 		file_open(wr_file,path_file,WRITE_MODE);
@@ -48,16 +50,35 @@ architecture beh of RWMEM is
 
 
 begin  -- beh
- --write_process
+	--write_process
 	WR_PROCESS:
 	process (CLK, RST,READNOTWRITE)
+		file mem_fp: text;
 		variable index: integer range 0 to RAM_DEPTH;
+		variable file_line : line;
+		variable tmp_data_u : std_logic_vector(INSTR_SIZE-1 downto 0);
 	begin  -- process
 		if RST = '1' then  	 -- asynchronous reset (active low)
-			while index < RAM_DEPTH loop
-				DRAM_mem(index) <= std_logic_vector(to_unsigned(index,instr_size));
+--			while index < RAM_DEPTH loop
+--				DRAM_mem(index) <= std_logic_vector(to_unsigned(index,instr_size));
+--				index := index + 1;
+--			end loop;
+
+			file_open(
+				mem_fp,
+				file_path_init,
+				READ_MODE
+			);
+
+			while (not endfile(mem_fp)) loop
+				readline(mem_fp,file_line);
+				hread(file_line,tmp_data_u);
+				DRAM_mem(index) <= tmp_data_u;
 				index := index + 1;
 			end loop;
+
+			file_close(mem_fp);
+
 			int_data_ready <= '0';
 			mem_ready <= '0';
 		elsif CLK'event and CLK = '1' then  -- rising clock edge

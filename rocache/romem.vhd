@@ -12,7 +12,7 @@ entity ROMEM is
 	generic (
 		file_path	: -- string(1 to 37) := "C://DLX//dlx-master//rocache//hex.txt";
 					string(1 to 87) := "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt";
-		ENTRIES		: integer := 48;
+		ENTRIES		: integer := 128;
 		WORD_SIZE	: integer := 32;
 		data_delay	: natural := 2
 	);
@@ -55,10 +55,13 @@ begin
 				Memory(index) <= conv_integer(unsigned(tmp_data_u));
 				index := index + 1;
 			end loop;
-		count <= 0;	
+
+			file_close(mem_fp);
+
+			count <= 0;
 		elsif CLK'event and clk= '1' then
 			if (ENABLE = '1' ) then
-				count <= count + 1; 
+				count <= count + 1;
 				if (count = data_delay) then
 					count <= 0;
 					valid <= '1';
@@ -76,5 +79,5 @@ end process FILL_MEM_P;
 
 	DATA_READY <= valid;
 	DATA <= idout when valid = '1' else (others => 'Z');
-	
+
 end Behavioral;

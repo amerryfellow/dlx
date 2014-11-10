@@ -29,14 +29,14 @@ architecture ASYNCHRONOUS of REGISTER_FDE is
 		);
 	end component;
 
-
+	signal INT_OUT : std_logic_vector(N-1 downto 0);
 
 	begin
 		REG_GEN_A : for i in 0 to N-1 generate
 			ASYNC_REG : FLIPFLOP
-				port map(DIN(i),ENABLE, CLK, RESET, DOUT(i));
+				port map(DIN(i),'1', CLK, RESET, INT_OUT(i));
 		end generate;
 
-		
+		DOUT <= INT_OUT when ENABLE = '1';
 end ASYNCHRONOUS;
 

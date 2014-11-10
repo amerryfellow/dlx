@@ -204,9 +204,9 @@ begin
 				-- Jump [ OPCODE(6) - PCOFFSET(26) ]
 				when JTYPE_J			=> INT_LUTOUT := "000000000" & "0000000" & "00" & "00";
 											JUMPER <= "11";
-				when JTYPE_JAL			=> INT_LUTOUT := "101000000" & "1000000" & "00" & "10";
+				when JTYPE_JAL			=> INT_LUTOUT := "101001000" & "1000000" & "00" & "10";
 											JUMPER <= "11";
-				when JTYPE_JR			=> INT_LUTOUT := "010010010" & "0000000" & "00" & "00";
+				when JTYPE_JR			=> INT_LUTOUT := "010010110" & "0000000" & "00" & "00";
 											JUMPER <= "11";
 
 				-- Branch [ OPCODE(6) - REG(5) - PCOFFSET(21) ]
@@ -268,7 +268,7 @@ begin
 			if ICACHE_STALL = '0' and WRF_STALL = '0' and DCACHE_STALL = '0' then
 				if JMP_REAL_LATCHED = '1' then
 					PC <= JMP_ADDRESS_LATCHED;
-					report "************************************************* LAT JMP" & integer'image(conv_integer(unsigned(JMP_ADDRESS_LATCHED)));
+--					report "************************************************* LAT JMP" & integer'image(conv_integer(unsigned(JMP_ADDRESS_LATCHED)));
 				else
 					PC <= NPC_ADDRESS;
 				end if;

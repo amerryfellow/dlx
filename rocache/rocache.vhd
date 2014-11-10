@@ -2,6 +2,10 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use ieee.std_logic_arith.all;
 use work.ROCACHE_PKG.all;
+use ieee.std_logic_textio.all;
+
+library std;
+use std.textio.all;
 
 entity ROCACHE is
 	port (
@@ -48,9 +52,11 @@ begin
 		variable currentLine		: natural range 0 to 2**ROCACHE_COUNTERSIZE;
 		variable count_miss 		: natural range 0 to ROCACHE_NUMLINES;
 		variable index				: natural range 0 to 2**ROCACHE_INDEXOFFSET - 1;
-		variable lineIndex				: natural range 0 to ROCACHE_NUMLINES;
+		variable lineIndex			: natural range 0 to ROCACHE_NUMLINES;
 		variable test				: natural;
 		variable address_stall		: std_logic_vector(INSTR_SIZE - 1 downto 0);
+		variable logLine			: line;
+		file logFile				: text;
 	begin
 		case (STATE_CURRENT) is
 
@@ -90,7 +96,12 @@ begin
 				-- Identify line to hold the new data
 				currentLine := GET_REPLACEMENT_LINE(address_stall, ICACHE);
 
---				report "----------------- Instr " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
+				report "----------------- Instruction " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
+
+				file_open(logFile, "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/usage.txt", APPEND_MODE);
+				write(logLine, string'(integer'image(conv_integer(unsigned(address_stall))) & "," & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & "," & integer'image(GET_SET(address_stall)) & "," & integer'image(currentLine)));
+				writeline(logFile, logLine);
+				file_close(logFile);
 
 				-- Store TAG
 				ICACHE(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);

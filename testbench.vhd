@@ -12,7 +12,7 @@ architecture TEST of DLX_TB is
 	component ROMEM is
 		generic (
 			file_path	: string(1 to 87) := "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/hex.txt";
-			ENTRIES		: integer := 48;
+			ENTRIES		: integer := 256;
 			WORD_SIZE	: integer := 32;
 			data_delay	: natural := 2
 		);

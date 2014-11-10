@@ -124,7 +124,7 @@ begin
 					-- Is RETURN active?
 					if(RET = '1') then
 						if( CWP = 0 ) then
-							report "ERROR: CWP IS ZERO! UNABLE TO RETURN";
+--							report "ERROR: CWP IS ZERO! UNABLE TO RETURN";
 						else
 							CWP <= CWP-1;			-- Decrease the CWP
 
@@ -132,7 +132,7 @@ begin
 							-- RET signal is High, it means that, in order to serve the proper registers, we
 							-- first need to retrieve them from memory. Hence: fill.
 							if(SWP = CWP) then
-								report "Filling. CWP " & integer'image(CWP) & " SWP " & integer'image(SWP-1);
+--								report "Filling. CWP " & integer'image(CWP) & " SWP " & integer'image(SWP-1);
 
 								FILL <= '1';		-- Activate the memory fill mechanism
 							end if;
@@ -148,7 +148,7 @@ begin
 							-- input block of an in-use register, which therefore hasn't yet been spilled. This
 							-- means that we need to spill it now.
 							if(CWP >= F-2+SWP) then
-								report "Spilling. CWP " & integer'image(CWP) & " SWP " & integer'image(SWP+1);
+--								report "Spilling. CWP " & integer'image(CWP) & " SWP " & integer'image(SWP+1);
 
 								SPILL <= '1';
 							end if; -- SPILL
@@ -157,7 +157,7 @@ begin
 
 					-- Is WRITE active?
 					if WR = '1' then
-						report "Im writing " & integer'image(conv_integer(DATAIN)) & " to " & integer'image(ADDRESS_CONVERTER(CWP, ADDR_WR)) & " which was " & integer'image(conv_integer(ADDR_WR));
+--						report "Im writing " & integer'image(conv_integer(DATAIN)) & " to " & integer'image(ADDRESS_CONVERTER(CWP, ADDR_WR)) & " which was " & integer'image(conv_integer(ADDR_WR));
 
 						REGISTERS(ADDRESS_CONVERTER(CWP, ADDR_WR)) <= DATAIN;
 					end if; -- WRITE
@@ -181,7 +181,7 @@ begin
 
 						-- We use a variable index to keep track of which register has been spilled, and which is
 						-- to spill next.
-						report "SPILL! index: " & integer'image(index);
+--						report "SPILL! index: " & integer'image(index);
 
 						MEMBUS <= REGISTERS(ADDRESS_CONVERTER(CWP+1, std_logic_vector(to_unsigned(index, LOGNREG))));
 						MEMCTR <= (others => '1');
@@ -191,7 +191,7 @@ begin
 						-- spilled two entire blocks ( I/O and LOCAL ): the spilling is then over. Notice that
 						-- the check is done with 2*N and not 2*N-1 as index is a variable and is updated instantly.
 						if( index = 2*N ) then
-							report "Spilling over";
+--							report "Spilling over";
 							index := 0;				-- Reset the index
 
 							MEMDONE <= '1';			-- Memory operations are over
@@ -202,7 +202,7 @@ begin
 						if(FILL = '1') then
 							-- We use a variable index to keep track of which register has been spilled, and
 							-- which is to spill next.
-							report "FILL! index: " & integer'image(index);
+--							report "FILL! index: " & integer'image(index);
 							REGISTERS(ADDRESS_CONVERTER(CWP, std_logic_vector(to_unsigned(index, LOGNREG)))) <= MEMBUS;
 							index := index + 1;
 
@@ -211,7 +211,7 @@ begin
 							-- Notice that the check is done with 2*N and not 2*N-1 as index is a variable and
 							-- is updated instantly.
 							if( index = 2*N ) then
-								report "Filling over";
+--								report "Filling over";
 								index := 0;			-- Reset the index
 
 								MEMDONE <= '1';		-- Memory operations are over
