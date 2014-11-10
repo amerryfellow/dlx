@@ -16,7 +16,7 @@ vcom -reportprogress 300 -work work basics/fulladder.vhd
 vcom -reportprogress 300 -work work basics/rca_generic.vhd
 vcom -reportprogress 300 -work work basics/sgnext.vhd
 vcom -reportprogress 300 -work work basics/mux.vhd
-vcom -reportprogress 300 -work work basics/wrf.vhd
+vcom -reportprogress 300 -work work basics/wrf_nomem.vhd
 vcom -reportprogress 300 -work work basics/inverter.vhd
 vcom -reportprogress 300 -work work basics/nand3to1.vhd
 vcom -reportprogress 300 -work work basics/and2to1.vhd

@@ -37,7 +37,6 @@ architecture structural of DLX is
 			IR  :				in std_logic_vector(31 downto 0);
 			JMP_PREDICT :		in std_logic;		-- Jump Prediction
 			ICACHE_STALL:		in std_logic;		-- The instruction cache is in stall
-			WRF_STALL:			in std_logic;		-- The WRF is busy
 			DCACHE_STALL:		in std_logic;		-- The rwcache is busy
 			ISZERO :			in std_logic;		-- Needed for condizional jumps
 			JMP_ADDRESS :		in std_logic_vector(31 downto 0);
@@ -46,7 +45,7 @@ architecture structural of DLX is
 
 			-- Outputs
 			JUMP:				out std_logic;
-			MUXIR_CTR:			out std_logic;
+			LATCHER:			out std_logic;
 
 			MUXIMMEDIATE_CTR:	out std_logic;
 			MUXJMPADDRESS_CTR:	out std_logic;
@@ -66,7 +65,6 @@ architecture structural of DLX is
 			MEMORY_RNOTW:		out std_logic;
 
 			WRF_RD_ENABLE:		out std_logic;
-			MUXWB_CTR:			out std_logic;
 
 			ID_STALL:			out std_logic;
 			EXE_STALL:			out std_logic;
@@ -208,11 +206,7 @@ architecture structural of DLX is
 
 			OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
 			OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
-			DATAIN:			IN std_logic_vector(NBIT-1 downto 0);			-- Write data
-
-			MEMBUS:			INOUT std_logic_vector(NBIT-1 downto 0);		-- Memory Data Bus
-			MEMCTR:			OUT std_logic_vector(10 downto 0);				-- Memory Control Signals
-			BUSY:			OUT std_logic									-- The register file is busy
+			DATAIN:			IN std_logic_vector(NBIT-1 downto 0)			-- Write data
 		);
 	end component;
 
@@ -251,7 +245,6 @@ architecture structural of DLX is
 	signal IR, IR_RF, ICACHE_IR				: std_logic_vector(Instr_size-1 downto 0) := (others => '0');
 	signal ICACHE_STALL, ICACHE_STALL_NOT	: std_logic := '1';
 	signal JMP_PREDICT						: std_logic;		-- Jump Prediction
-	signal WRF_STALL						: std_logic;		-- The WRF is busy
 	signal DCACHE_STALL						: std_logic;		-- The WRF is busy
 	signal DCACHE_STALL_NOT					: std_logic;		-- The WRF is busy
 	signal ICACHE_ENABLE					: std_logic;
@@ -267,9 +260,8 @@ architecture structural of DLX is
 	signal ALU_FUNC							: std_logic_vector(4 downto 0);
 	signal MEMORY_ENABLE					: std_logic;
 	signal MEMORY_RNOTW						: std_logic;
-	signal MUXWB_CTR						: std_logic;
 	signal JUMP								: std_logic;
-	signal MUXIR_CTR						: std_logic;
+	signal LATCHER						: std_logic;
 
 	signal ID_STALL							: std_logic;
 	signal EXE_STALL						: std_logic;
@@ -295,8 +287,6 @@ architecture structural of DLX is
 	signal RS1_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 1
 	signal RS1_DATA_ISZERO					: std_logic;
 	signal RS2_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 2
-	signal WRFMEMBUS						: std_logic_vector(wrfNumBit-1 downto 0);		-- Memory Data Bus
-	signal WRFMEMCTR						: std_logic_vector(10 downto 0);				-- Memory Control Signals
 
 	signal RS1_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
 	signal RS2_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
@@ -352,15 +342,15 @@ begin
 	DCACHE_STALL_NOT <= not DCACHE_STALL;
 
 	-- Control Unit
-	dut: CU_UP
-	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, WRF_STALL, DCACHE_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, MUXIR_CTR, MUXIMMEDIATE_CTR, MUXJMPADDRESS_CTR, MUXRD0_CTR, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALUOUT_CTR, MUXALU_CTR, ALU_FUNC, MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, MUXWB_CTR, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
+	CONTROL_UNIT : CU_UP
+	port map (CLK, RST, IR, JMP_PREDICT, ICACHE_STALL, DCACHE_STALL, RS1_DATA_ISZERO, JMP_ADDRESS, IPC, PC, JUMP, LATCHER, MUXIMMEDIATE_CTR, MUXJMPADDRESS_CTR, MUXRD0_CTR, MUXRD_CTR, WRF_ENABLE, WRF_CALL, WRF_RET, WRF_RS1_ENABLE, WRF_RS2_ENABLE, MUXALUOUT_CTR, MUXALU_CTR, ALU_FUNC, MEMORY_ENABLE, MEMORY_RNOTW, WRF_RD_ENABLE, ID_STALL, EXE_STALL, MEM_STALL, WB_STALL);
 
 	ICACHE : ROCACHE
 		port map (CLK, RST, '1', PC, ICACHE_IR, ICACHE_STALL, IRAM_ISSUE, IRAM_ADDRESS, IRAM_DATA, IRAM_READY);
 
 	MUX_IR : MUX
 		generic map ( 32 )
---		port map( (others => '0'), ICACHE_IR, MUXIR_CTR, IR );
+--		port map( (others => '0'), ICACHE_IR, LATCHER, IR );
 		port map( (others => '0'), ICACHE_IR, ICACHE_STALL_NOT, IR );
 
 --	__ INCREMENTER
@@ -371,11 +361,11 @@ begin
 
 	FAKEPIPEREG_NPC: REGISTER_FDE
 		generic map (32)
-		port map(IPC, MUXIR_CTR, CLK, RST, NPC);
+		port map(IPC, LATCHER, CLK, RST, NPC);
 
 	PROPAGATE_PC_IF_RF: REGISTER_FDE
 		generic map (32)
-		port map (IR, MUXIR_CTR, CLK, RST, IR_RF);
+		port map (IR, LATCHER, CLK, RST, IR_RF);
 
 	--
 	-- STAGE TWO
@@ -395,7 +385,7 @@ begin
 
 	JMP_REGISTER_ADDRESS <= FWDJ;
 
-	MUX_JMP_ADDRESS : MUX
+	MUX_JMP : MUX
 		generic map ( DATA_SIZE )
 		port map ( JMP_RELATIVE_ADDRESS, JMP_REGISTER_ADDRESS, MUXJMPADDRESS_CTR, JMP_ADDRESS );
 
@@ -408,7 +398,7 @@ begin
 
 	REGISTERFILE: WRF
 		generic map (wrfNumBit, wrfNumGlobals, wrfNumWindows, wrfNumRegsPerWin, wrfNumRegs, wrfLogNumRegs, wrfLogNumRegsPerWin)
-		port map (CLK, RST, WRF_ENABLE, WRF_CALL, WRF_RET_R31, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB, WRFMEMBUS, WRFMEMCTR, WRF_STALL);
+		port map (CLK, RST, WRF_ENABLE, WRF_CALL, WRF_RET_R31, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB);
 
 	MUX_RD: MUX
 		generic map (5)
@@ -439,27 +429,27 @@ begin
 
 	PIPEREG_RD: REGISTER_FDE
 		generic map (5)
-		port map(RD, MUXIR_CTR, CLK, RST, RD_EX);
+		port map(RD, LATCHER, CLK, RST, RD_EX);
 
 	PROPAGATE_RS1_ID_EX: REGISTER_FDE
 		generic map (5)
-		port map (RS1, MUXIR_CTR, CLK, RST, RS1_EX);
+		port map (RS1, LATCHER, CLK, RST, RS1_EX);
 
 	PROPAGATE_RS2_ID_EX: REGISTER_FDE
 		generic map (5)
-		port map (RS2, MUXIR_CTR, CLK, RST, RS2_EX);
+		port map (RS2, LATCHER, CLK, RST, RS2_EX);
 
 	PIPEREG_RS1_DATA: REGISTER_FDE
 		generic map (32)
-		port map(RS1_DATA, MUXIR_CTR, CLK, RST, RS1_DATA_EX);
+		port map(RS1_DATA, LATCHER, CLK, RST, RS1_DATA_EX);
 
 	PIPEREG_RS2_DATA: REGISTER_FDE
 		generic map (32)
-		port map(RS2_DATA, MUXIR_CTR, CLK, RST, RS2_DATA_EX);
+		port map(RS2_DATA, LATCHER, CLK, RST, RS2_DATA_EX);
 
 	PIPEREG_IMMEDIATE: REGISTER_FDE
 		generic map (32)
-		port map(IMMEDIATE, MUXIR_CTR, CLK, RST, IMMEDIATE_EX);
+		port map(IMMEDIATE, LATCHER, CLK, RST, IMMEDIATE_EX);
 
 	-- STAGE 3
 
@@ -503,23 +493,23 @@ begin
 
 	PIPEREG_ALU_OUT: REGISTER_FDE
 		generic map (32)
-		port map(ALU_OUT_REAL, MUXIR_CTR, CLK, RST, ALU_OUT_MEM);
+		port map(ALU_OUT_REAL, LATCHER, CLK, RST, ALU_OUT_MEM);
 
 	PIPEREG_IMMEDIATE_EX: REGISTER_FDE
 		generic map (32)
-		port map(IMMEDIATE_EX, MUXIR_CTR, CLK, RST, IMMEDIATE_MEM);
+		port map(IMMEDIATE_EX, LATCHER, CLK, RST, IMMEDIATE_MEM);
 
 	PIPEREG_RD_EX: REGISTER_FDE
 		generic map (5)
-		port map(RD_EX, MUXIR_CTR, CLK, RST, RD_MEM);
+		port map(RD_EX, LATCHER, CLK, RST, RD_MEM);
 
 	PIPEREG_RS2_DATA_EX: REGISTER_FDE
 		generic map (32)
-		port map(RS2_DATA_EX, MUXIR_CTR, CLK, RST, RS2_DATA_MEM);
+		port map(RS2_DATA_EX, LATCHER, CLK, RST, RS2_DATA_MEM);
 
 	PIPEREG_RS2_EX: REGISTER_FDE
 		generic map (5)
-		port map(RS2_EX, MUXIR_CTR, CLK, RST, RS2_MEM);
+		port map(RS2_EX, LATCHER, CLK, RST, RS2_MEM);
 
 	-- STAGE FOUR
 
