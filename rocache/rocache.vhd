@@ -24,6 +24,7 @@ end ROCACHE;
 
 architecture Behavioral of ROCACHE is
 	signal ICACHE							: ROCACHE_TYPE;
+	signal ICACHE_OUT						: ROCACHE_TYPE;
 	signal STATE_CURRENT					: state_type;
 	signal STATE_NEXT						: state_type;
 	signal INT_ISSUE_RAM_READ				: std_logic;
@@ -40,6 +41,7 @@ begin
 			STATE_CURRENT <= STATE_FLUSH_MEM;
 		elsif clk'event and clk = '1' then
 			STATE_CURRENT <= STATE_NEXT;
+			ICACHE <= ICACHE_OUT;
 		end if;
 	end process;
 
@@ -65,14 +67,14 @@ begin
 			for i in 0 to ROCACHE_NUMSETS - 1 loop
 				for j in 0 to ROCACHE_NUMLINES - 1 loop
 
-					ICACHE(i)(j).tag( ROCACHE_TAGSIZE - 1 downto 0 ) <= (others => '1');
-					ICACHE(i)(j).valid <= '0'; -- dirty bit
-					ICACHE(i)(j).counter <= 0;
+					ICACHE_OUT(i)(j).tag( ROCACHE_TAGSIZE - 1 downto 0 ) <= (others => '1');
+					ICACHE_OUT(i)(j).valid <= '0'; -- dirty bit
+					ICACHE_OUT(i)(j).counter <= 0;
 
 					INT_STALL <= '1';
 
 					for k in 0 to ROCACHE_WORDS - 1 loop
-						ICACHE(i)(j).words(k) <= (others => '1');
+						ICACHE_OUT(i)(j).words(k) <= (others => '1');
 					end loop;
 
 				end loop;
@@ -104,17 +106,17 @@ begin
 				file_close(logFile);
 
 				-- Store TAG
-				ICACHE(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);
+				ICACHE_OUT(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);
 
 				-- Reset LFU counter
-				ICACHE(GET_SET(address_stall))(currentLine).counter <= 0;
+				ICACHE_OUT(GET_SET(address_stall))(currentLine).counter <= 0;
 
 				-- Set valid bit
-				ICACHE(GET_SET(address_stall))(currentLine).valid <= '1';
+				ICACHE_OUT(GET_SET(address_stall))(currentLine).valid <= '1';
 
 				-- Fetch the line from memory data bus and write it into the cache data
 				for i in 0 to ROCACHE_WORDS - 1 loop
-					ICACHE(GET_SET(address_stall))(currentLine).words(i)
+					ICACHE_OUT(GET_SET(address_stall))(currentLine).words(i)
 						<= RAM_DATA(((i+1)*instr_size - 1) downto i*INSTR_SIZE);
 				end loop;
 
@@ -151,7 +153,7 @@ begin
 --							report string'("STATE: ") & integer'image(conv_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(conv_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(conv_integer(conv_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
 
 							HIT := '0'; -- Reset HIT
-							ICACHE(GET_SET(ADDRESS))(i).counter <= ICACHE(GET_SET(ADDRESS))(i).counter + 1;
+							ICACHE_OUT(GET_SET(ADDRESS))(i).counter <= ICACHE(GET_SET(ADDRESS))(i).counter + 1;
 							-- Print out the instruction
 							INT_OUT_DATA <= ICACHE(
 								GET_SET(ADDRESS))(lineIndex).words(

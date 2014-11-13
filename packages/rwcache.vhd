@@ -27,7 +27,7 @@ type RWCACHE_RECORD is
 	record
 		tag : std_logic_vector(RWCACHE_TAGSIZE-1 downto 0);
 		words : DATA_WORDS;
-		counter : natural range 0 to 2**RWCACHE_COUNTERSIZE;
+		counter : integer range 0 to 2**RWCACHE_COUNTERSIZE;
 		valid : std_logic;
 end record;
 

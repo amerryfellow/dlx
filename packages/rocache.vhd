@@ -27,7 +27,7 @@ type ROCACHE_RECORD is
 	record
 		tag : std_logic_vector(ROCACHE_TAGSIZE-1 downto 0);
 		words : INSTR_WORDS;
-		counter : natural range 0 to 2**ROCACHE_COUNTERSIZE;
+		counter : integer range 0 to 2**ROCACHE_COUNTERSIZE;
 		valid : std_logic;
 end record;
 

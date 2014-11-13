@@ -137,7 +137,7 @@ architecture structural of DLX is
 			);
 	end component;
 
-	component REGISTER_FDE is
+	component REGISTER_FDL is
 		generic (
 			N: integer := 32
 		);
@@ -179,13 +179,11 @@ architecture structural of DLX is
 
 	component WRF is
 		generic (
-			NBIT:		integer;
-			M:			integer;
-			F:			integer;
-			N:			integer;
-			NREG:		integer;
-			LOGNREG:	integer;
-			LOGN:		integer
+			NBIT:				integer;
+			numWindows:			integer;
+			numRegsPerWin:		integer;
+			logNumWindows:		integer;
+			logNumRegsPerWin:	integer
 		);
 
 		port (
@@ -200,9 +198,9 @@ architecture structural of DLX is
 			RD2:			IN std_logic;									-- Read 2
 			WR:				IN std_logic;									-- Write
 
-			ADDR_RD1:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 1
-			ADDR_RD2:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Read Address 2
-			ADDR_WR:		IN std_logic_vector(LOGNREG-1 downto 0);		-- Write Address
+			ADDR_RD1:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Read Address 1
+			ADDR_RD2:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Read Address 2
+			ADDR_WR:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Write Address
 
 			OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
 			OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
@@ -279,20 +277,20 @@ architecture structural of DLX is
 	signal JMP_REGISTER_ADDRESS				: std_logic_vector(31 downto 0) := (others => '0');
 	signal JMP_CARRYOUT						: std_logic;
 
-	signal RD_TEMP							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Write Address
-	signal RD								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Write Address
-	signal RD0								: std_logic_vector(wrfLogNumRegs-1 downto 0);
-	signal RS1								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
-	signal RS2								: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 2
+	signal RD_TEMP							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Write Address
+	signal RD								: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Write Address
+	signal RD0								: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);
+	signal RS1								: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Read Address 1
+	signal RS2								: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Read Address 2
 	signal RS1_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 1
 	signal RS1_DATA_ISZERO					: std_logic;
 	signal RS2_DATA							: std_logic_vector(wrfNumBit-1 downto 0);			-- Read data 2
 
-	signal RS1_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
-	signal RS2_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
+	signal RS1_EX							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Read Address 1
+	signal RS2_EX							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Read Address 1
 	signal RS1_DATA_EX						: std_logic_vector(wrfNumBit-1 downto 0);
 	signal RS2_DATA_EX						: std_logic_vector(wrfNumBit-1 downto 0);
-	signal RD_EX							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal RD_EX							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);
 	signal IMMEDIATE_EX						: std_logic_vector(INSTR_SIZE-1 downto 0);
 
 	-- STAGE THREE
@@ -309,10 +307,10 @@ architecture structural of DLX is
 	signal ALU_OUT							: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal ALU_OUT_REAL						: std_logic_vector(DATA_SIZE-1 downto 0);
 
-	signal RS2_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);		-- Read Address 1
+	signal RS2_MEM							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);		-- Read Address 1
 	signal RS2_DATA_MEM						: std_logic_vector(wrfNumBit-1 downto 0);
 	signal ALU_OUT_MEM						: std_logic_vector(WORD_SIZE-1 downto 0);
-	signal RD_MEM							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal RD_MEM							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);
 	signal IMMEDIATE_MEM					: std_logic_vector(wrfNumBit-1 downto 0);
 
 	-- STAGE FOUR
@@ -321,7 +319,7 @@ architecture structural of DLX is
 	signal RS2_DATA_MEM1					: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal MEM_DATA							: std_logic_vector(WORD_SIZE-1 downto 0);
 
-	signal RD_WB							: std_logic_vector(wrfLogNumRegs-1 downto 0);
+	signal RD_WB							: std_logic_vector(wrfLogNumRegsPerWin+1 downto 0);
 	signal MEM_DATA_WB						: std_logic_vector(WORD_SIZE-1 downto 0);
 	signal RD_DATA_WB						: std_logic_vector(wrfNumBit-1 downto 0);
 
@@ -359,11 +357,11 @@ begin
 		generic map (32)
 		port map (PC, IPC);
 
-	FAKEPIPEREG_NPC: REGISTER_FDE
+	PROPAGATE_NPC: REGISTER_FDL
 		generic map (32)
 		port map(IPC, LATCHER, CLK, RST, NPC);
 
-	PROPAGATE_PC_IF_RF: REGISTER_FDE
+	PROPAGATE_PC_IF_RF: REGISTER_FDL
 		generic map (32)
 		port map (IR, LATCHER, CLK, RST, IR_RF);
 
@@ -397,7 +395,7 @@ begin
 	WRF_RET_R31 <= WRF_RET and ( not or_reduce( RS1 xor "11111" ) );
 
 	REGISTERFILE: WRF
-		generic map (wrfNumBit, wrfNumGlobals, wrfNumWindows, wrfNumRegsPerWin, wrfNumRegs, wrfLogNumRegs, wrfLogNumRegsPerWin)
+		generic map (wrfNumBit, wrfNumWindows, wrfNumRegsPerWin, wrfLogNumWindows, wrfLogNumRegsPerWin)
 		port map (CLK, RST, WRF_ENABLE, WRF_CALL, WRF_RET_R31, WRF_RS1_ENABLE, WRF_RS2_ENABLE, WRF_RD_ENABLE, RS1, RS2, RD_WB, RS1_DATA, RS2_DATA, RD_DATA_WB);
 
 	MUX_RD: MUX
@@ -427,27 +425,27 @@ begin
 
 	-- PIPES
 
-	PIPEREG_RD: REGISTER_FDE
+	PIPEREG_RD: REGISTER_FDL
 		generic map (5)
 		port map(RD, LATCHER, CLK, RST, RD_EX);
 
-	PROPAGATE_RS1_ID_EX: REGISTER_FDE
+	PROPAGATE_RS1_ID_EX: REGISTER_FDL
 		generic map (5)
 		port map (RS1, LATCHER, CLK, RST, RS1_EX);
 
-	PROPAGATE_RS2_ID_EX: REGISTER_FDE
+	PROPAGATE_RS2_ID_EX: REGISTER_FDL
 		generic map (5)
 		port map (RS2, LATCHER, CLK, RST, RS2_EX);
 
-	PIPEREG_RS1_DATA: REGISTER_FDE
+	PIPEREG_RS1_DATA: REGISTER_FDL
 		generic map (32)
 		port map(RS1_DATA, LATCHER, CLK, RST, RS1_DATA_EX);
 
-	PIPEREG_RS2_DATA: REGISTER_FDE
+	PIPEREG_RS2_DATA: REGISTER_FDL
 		generic map (32)
 		port map(RS2_DATA, LATCHER, CLK, RST, RS2_DATA_EX);
 
-	PIPEREG_IMMEDIATE: REGISTER_FDE
+	PIPEREG_IMMEDIATE: REGISTER_FDL
 		generic map (32)
 		port map(IMMEDIATE, LATCHER, CLK, RST, IMMEDIATE_EX);
 
@@ -491,23 +489,23 @@ begin
 		generic map ( DATA_SIZE )
 		port map ( ALU_OUT, IMMEDIATE_EX, MUXALUOUT_CTR, ALU_OUT_REAL );
 
-	PIPEREG_ALU_OUT: REGISTER_FDE
+	PIPEREG_ALU_OUT: REGISTER_FDL
 		generic map (32)
 		port map(ALU_OUT_REAL, LATCHER, CLK, RST, ALU_OUT_MEM);
 
-	PIPEREG_IMMEDIATE_EX: REGISTER_FDE
+	PIPEREG_IMMEDIATE_EX: REGISTER_FDL
 		generic map (32)
 		port map(IMMEDIATE_EX, LATCHER, CLK, RST, IMMEDIATE_MEM);
 
-	PIPEREG_RD_EX: REGISTER_FDE
+	PIPEREG_RD_EX: REGISTER_FDL
 		generic map (5)
 		port map(RD_EX, LATCHER, CLK, RST, RD_MEM);
 
-	PIPEREG_RS2_DATA_EX: REGISTER_FDE
+	PIPEREG_RS2_DATA_EX: REGISTER_FDL
 		generic map (32)
 		port map(RS2_DATA_EX, LATCHER, CLK, RST, RS2_DATA_MEM);
 
-	PIPEREG_RS2_EX: REGISTER_FDE
+	PIPEREG_RS2_EX: REGISTER_FDL
 		generic map (5)
 		port map(RS2_EX, LATCHER, CLK, RST, RS2_MEM);
 
@@ -527,11 +525,11 @@ begin
 	DCACHE : RWCACHE
 		port map ( CLK, RST, MEMORY_ENABLE, MEMORY_RNOTW, MEM_ADDRESS, MEM_DATA, DCACHE_STALL, DRAM_ISSUE, DRAM_READNOTWRITE, DRAM_ADDRESS, DRAM_DATA, DRAM_READY );
 
-	PIPEREG_RD_MEM: REGISTER_FDE
+	PIPEREG_RD_MEM: REGISTER_FDL
 		generic map (5)
 		port map(RD_MEM, '1', CLK, RST, RD_WB);
 
-	PIPEREG_MEM_DATA: REGISTER_FDE
+	PIPEREG_MEM_DATA: REGISTER_FDL
 		generic map (32)
 		port map(MEM_DATA, '1', CLK, RST, MEM_DATA_WB);
 

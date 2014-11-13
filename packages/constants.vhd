@@ -3,10 +3,8 @@ package CONSTANTS is
 
 	-- WRF
 	constant wrfNumBit :				integer	:= 32;	-- numBit;
-	constant wrfNumGlobals :			integer := 8;	-- numGlobals;
-	constant wrfNumWindows :			integer := 7;	-- numWindows;
+	constant wrfNumWindows :			integer := 8;	-- numWindows;
 	constant wrfNumRegsPerWin :			integer := 8;	-- numRegsPerWin;
-	constant wrfNumRegs :				integer := 128; -- 16 + 2*7*8; -- numGlobals + 2*numWindows*numRegsPerWin;
-	constant wrfLogNumRegs:				integer := 5;	-- LOG(numRegsPerWin*3+numGlobals)
+	constant wrfLogNumWindows :			integer := 3;	-- numWindows;
 	constant wrfLogNumRegsPerWin :		integer := 3;	-- LOG(numRegsPerWin)
 end CONSTANTS;
