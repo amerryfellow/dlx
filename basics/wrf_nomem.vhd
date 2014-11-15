@@ -27,7 +27,12 @@ entity WRF is
 
 		ADDR_RD1:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Read Address 1
 		ADDR_RD2:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Read Address 2
-		ADDR_WR:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Write Address
+		ADDR_WRC:		IN std_logic_vector(logNumRegsPerWin+1 downto 0);		-- Write Address
+		ADDR_WR:		IN std_logic_vector(logNumWindows+logNumRegsPerWin+1 downto 0);		-- Write Address
+
+		REAL_ADDR_RD1:	OUT std_logic_vector(logNumWindows+logNumRegsPerWin+1 downto 0);		-- Read Address 1
+		REAL_ADDR_RD2:	OUT std_logic_vector(logNumWindows+logNumRegsPerWin+1 downto 0);		-- Read Address 2
+		REAL_ADDR_WR:	OUT std_logic_vector(logNumWindows+logNumRegsPerWin+1 downto 0);		-- Write Address
 
 		OUT1:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 1
 		OUT2:			OUT std_logic_vector(NBIT-1 downto 0);			-- Read data 2
@@ -46,15 +51,15 @@ architecture behavioral of WRF is
 	signal REGISTERS : REG_ARRAY := ((others=> (others=>'0')));		-- Registers
 	signal CWP				: integer := 0;
 	signal CWPPLUSONE		: integer := 1;
-	signal REAL_ADDR_RD1	: integer;
-	signal REAL_ADDR_RD2	: integer;
-	signal REAL_ADDR_WR		: integer;
+	signal INT_REAL_ADDR_RD1	: integer;
+	signal INT_REAL_ADDR_RD2	: integer;
+	signal INT_REAL_ADDR_WR		: integer;
 
 begin
 
 	ADDRESS_CONVERTER_RD1 : process(CWP, ADDR_RD1)
 		variable baseAddr : std_logic_vector(logNumWindows+1 downto 0);
-		variable rCWP : natural;
+		variable rCWP : natural range 0 to numWindows;
 		variable vCWP : std_logic_vector(logNumWindows-1 downto 0);
 		variable vGlob : std_logic;
 		variable INNOTLOCAL : std_logic;
@@ -91,14 +96,15 @@ begin
 		baseAddr := vGlob & vCWP & INNOTLOCAL;
 
 		vRealAddress := baseAddr & ADDR_RD1(logNumRegsPerWin-1 downto 0);
-		REAL_ADDR_RD1 <= conv_integer(vRealAddress);
+		REAL_ADDR_RD1 <= vRealAddress;
+		INT_REAL_ADDR_RD1 <= conv_integer(vRealAddress);
 
---		report "to address " & integer'image(REAL_ADDR_RD1);
+--		report "to address " & integer'image(INT_REAL_ADDR_RD1);
 	end process;
 
 	ADDRESS_CONVERTER_RD2 : process(CWP, ADDR_RD2)
 		variable baseAddr : std_logic_vector(logNumWindows+1 downto 0);
-		variable rCWP : natural;
+		variable rCWP : natural range 0 to numWindows;
 		variable vCWP : std_logic_vector(logNumWindows-1 downto 0);
 		variable vGlob : std_logic;
 		variable INNOTLOCAL : std_logic;
@@ -127,12 +133,13 @@ begin
 		baseAddr := vGlob & vCWP & INNOTLOCAL;
 
 		vRealAddress := baseAddr & ADDR_RD2(logNumRegsPerWin-1 downto 0);
-		REAL_ADDR_RD2 <= conv_integer(vRealAddress);
+		REAL_ADDR_RD2 <= vRealAddress;
+		INT_REAL_ADDR_RD2 <= conv_integer(vRealAddress);
 	end process;
 
-	ADDRESS_CONVERTER_WR : process(CWP, ADDR_WR)
+	ADDRESS_CONVERTER_WR : process(CWP, ADDR_WRC)
 		variable baseAddr : std_logic_vector(logNumWindows+1 downto 0);
-		variable rCWP : natural;
+		variable rCWP : natural range 0 to numWindows;
 		variable vCWP : std_logic_vector(logNumWindows-1 downto 0);
 		variable vGlob : std_logic;
 		variable INNOTLOCAL : std_logic;
@@ -141,11 +148,11 @@ begin
 		vGlob := '0';
 
 		-- Either OUT or GLOBAL
-		if ADDR_WR(logNumRegsPerWin+1) = '1' then
+		if ADDR_WRC(logNumRegsPerWin+1) = '1' then
 			INNOTLOCAL := '0';
 
 			-- Global
-			if ADDR_WR(logNumRegsPerWin) = '1' then
+			if ADDR_WRC(logNumRegsPerWin) = '1' then
 				rCWP := 0;
 				vGlob := '1';
 			-- Out
@@ -154,14 +161,14 @@ begin
 			end if;
 		else
 			rCWP := CWP;
-			INNOTLOCAL := ADDR_WR(logNumRegsPerWin);
+			INNOTLOCAL := ADDR_WRC(logNumRegsPerWin);
 		end if;
 
 		vCWP := std_logic_vector(to_unsigned(rCWP, logNumWindows));
 		baseAddr := vGlob & vCWP & INNOTLOCAL;
 
-		vRealAddress := baseAddr & ADDR_WR(logNumRegsPerWin-1 downto 0);
-		REAL_ADDR_WR <= conv_integer(vRealAddress);
+		vRealAddress := baseAddr & ADDR_WRC(logNumRegsPerWin-1 downto 0);
+		REAL_ADDR_WR <= vRealAddress;
 	end process;
 
 	--
@@ -174,7 +181,7 @@ begin
 	-- The latter is the choice we made.
 	--
 
-	PROCESS_CALLRETWR: process(CLK, RESET, RET, CALL, WR, DATAIN, REAL_ADDR_WR)
+	PROCESS_CALLRETWR: process(CLK, RESET, RET, CALL, WR, DATAIN, ADDR_WR)
 		variable index: integer := 0;
 	begin
 		-- Synchronous
@@ -208,16 +215,15 @@ begin
 
 				-- Is WRITE active?
 				if WR = '1' then
---					report "Im writing " & integer'image(conv_integer(DATAIN)) & " to " & integer'image(ADDRESS_CONVERTER(CWP, ADDR_WR)) & " which was " & integer'image(conv_integer(ADDR_WR));
-
-					REGISTERS(REAL_ADDR_WR) <= DATAIN;
+--				report "Im writing " & integer'image(conv_integer(DATAIN)) & " to " & integer'image(conv_integer(ADDR_WR));
+					REGISTERS(conv_integer(ADDR_WR)) <= DATAIN;
 				end if; -- WRITE
 			end if; -- RESET
 		end if;
 	end process;
 
-	OUT1 <= REGISTERS(REAL_ADDR_RD1) when ( RD1 = '1' and ENABLE = '1' ) else (others => '0');
-	OUT2 <= REGISTERS(REAL_ADDR_RD2) when ( RD2 = '1' and ENABLE = '1' ) else (others => '0');
+	OUT1 <= REGISTERS(INT_REAL_ADDR_RD1) when ( RD1 = '1' and ENABLE = '1' ) else (others => '0');
+	OUT2 <= REGISTERS(INT_REAL_ADDR_RD2) when ( RD2 = '1' and ENABLE = '1' ) else (others => '0');
 
 end behavioral;
 

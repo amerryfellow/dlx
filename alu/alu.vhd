@@ -130,8 +130,7 @@ architecture Behavioral of ALU is
 	begin
 		P_ALU : process (FUNC, A, B)
 		begin
-			
-			
+
 			case FUNC is
 				when ALUADD =>
 --					report "Adder w/ A: " & integer'image(to_integer(unsigned(A))) & " - B: " & integer'image(to_integer(unsigned(B)));
@@ -141,7 +140,7 @@ architecture Behavioral of ALU is
 					MUX_SEL <= "00";
 
 				when ALUSUB =>
-					report "Subtracting " & integer'image(conv_integer(signed(A))) & " and " & integer'image(conv_integer(signed(not B)));
+--					report "Subtracting " & integer'image(conv_integer(signed(A))) & " and " & integer'image(conv_integer(signed(not B)));
 					int_A <= A;
 					int_B <= not B;
 					Cin <= '1';

@@ -43,4 +43,4 @@ vsim work.DLX_TB
 add wave -position insertpoint sim:/DLX_TB/*
 add wave -position insertpoint sim:/DLX_TB/GIANLUCA/*
 add wave -position insertpoint sim:/DLX_TB/DRAM/*
-run 1500 ns
+run 30000 ns

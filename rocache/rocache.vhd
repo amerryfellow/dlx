@@ -1,11 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use ieee.std_logic_arith.all;
+use ieee.numeric_std.all;
 use work.ROCACHE_PKG.all;
-use ieee.std_logic_textio.all;
-
-library std;
-use std.textio.all;
 
 entity ROCACHE is
 	port (
@@ -23,32 +19,32 @@ entity ROCACHE is
 end ROCACHE;
 
 architecture Behavioral of ROCACHE is
-	signal ICACHE							: ROCACHE_TYPE;
-	signal ICACHE_OUT						: ROCACHE_TYPE;
+	signal ICACHE,ICACHE_REG							: ROCACHE_TYPE;
 	signal STATE_CURRENT					: state_type;
 	signal STATE_NEXT						: state_type;
 	signal INT_ISSUE_RAM_READ				: std_logic;
 	signal INT_OUT_DATA						: std_logic_vector(INSTR_SIZE -1 downto 0) := (others => '0');
-	signal INT_STALL							: std_logic;
+	signal INT_STALL						: std_logic;
 
 begin
 	--
 	-- FSM Management
 	--
-	state_update: process(CLK, RST, STATE_NEXT)
+	state_update: process(CLK, RST, STATE_NEXT,ICACHE)
 	begin
 		if RST = '1' then
 			STATE_CURRENT <= STATE_FLUSH_MEM;
+
 		elsif clk'event and clk = '1' then
 			STATE_CURRENT <= STATE_NEXT;
-			ICACHE <= ICACHE_OUT;
+			ICACHE_REG <= ICACHE;
 		end if;
 	end process;
 
 	--
 	-- The MONSTER
 	--
-	main: process(STATE_CURRENT, ADDRESS, RAM_READY)
+	main: process(STATE_CURRENT, ADDRESS, RAM_READY, RAM_DATA, INT_ISSUE_RAM_READ, ENABLE, ICACHE_REG)
 		variable HIT		 		: std_logic:='0';
 		variable int_mem			: std_logic_vector(2*INSTR_SIZE - 1 downto 0);
 		variable currentLine		: natural range 0 to 2**ROCACHE_COUNTERSIZE;
@@ -57,9 +53,9 @@ begin
 		variable lineIndex			: natural range 0 to ROCACHE_NUMLINES;
 		variable test				: natural;
 		variable address_stall		: std_logic_vector(INSTR_SIZE - 1 downto 0);
-		variable logLine			: line;
-		file logFile				: text;
 	begin
+	count_miss := 0;
+	ICACHE <= ICACHE_REG;
 		case (STATE_CURRENT) is
 
 		when  STATE_FLUSH_MEM =>
@@ -67,27 +63,24 @@ begin
 			for i in 0 to ROCACHE_NUMSETS - 1 loop
 				for j in 0 to ROCACHE_NUMLINES - 1 loop
 
-					ICACHE_OUT(i)(j).tag( ROCACHE_TAGSIZE - 1 downto 0 ) <= (others => '1');
-					ICACHE_OUT(i)(j).valid <= '0'; -- dirty bit
-					ICACHE_OUT(i)(j).counter <= 0;
-
-					INT_STALL <= '1';
+					ICACHE(i)(j).tag( ROCACHE_TAGSIZE - 1 downto 0 ) <= (others => '0');
+					ICACHE(i)(j).valid <= '0'; -- dirty bit
+					ICACHE(i)(j).counter <= 0;
 
 					for k in 0 to ROCACHE_WORDS - 1 loop
-						ICACHE_OUT(i)(j).words(k) <= (others => '1');
+						ICACHE(i)(j).words(k) <= (others => '1');
 					end loop;
-
 				end loop;
 			end loop;
-
+			address_stall  := (others => '0');
 			HIT := '0';
 			INT_ISSUE_RAM_READ <= '0';
-			STATE_NEXT <= STATE_COMPARE_TAGS;
+			STATE_NEXT <= STATE_IDLE;
 
 		-- IDLE STATE
 		-- Do nothing, assume miss
 		when STATE_IDLE =>
-			STATE_NEXT <= STATE_MISS;
+			STATE_NEXT <= STATE_COMPARE_TAGS;
 
 		-- MISS STATE
 		-- Probe the RAM and wait until RAM_READY
@@ -96,33 +89,31 @@ begin
 			if RAM_READY = '1' then
 
 				-- Identify line to hold the new data
-				currentLine := GET_REPLACEMENT_LINE(address_stall, ICACHE);
+				currentLine := GET_REPLACEMENT_LINE(address_stall, ICACHE_REG);
 
-				report "----------------- Instruction " & integer'image(conv_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
-
-				file_open(logFile, "/home/gandalf/Documents/Universita/Postgrad/Modules/Microelectronic/dlx/rocache/usage.txt", APPEND_MODE);
-				write(logLine, string'(integer'image(conv_integer(unsigned(address_stall))) & "," & integer'image(conv_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & "," & integer'image(GET_SET(address_stall)) & "," & integer'image(currentLine)));
-				writeline(logFile, logLine);
-				file_close(logFile);
+--				report "----------------- Instr " & integer'image(to_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(to_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
 
 				-- Store TAG
-				ICACHE_OUT(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);
+				ICACHE(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);
 
 				-- Reset LFU counter
-				ICACHE_OUT(GET_SET(address_stall))(currentLine).counter <= 0;
+				ICACHE(GET_SET(address_stall))(currentLine).counter <= 0;
 
 				-- Set valid bit
-				ICACHE_OUT(GET_SET(address_stall))(currentLine).valid <= '1';
+				ICACHE(GET_SET(address_stall))(currentLine).valid <= '1';
 
 				-- Fetch the line from memory data bus and write it into the cache data
 				for i in 0 to ROCACHE_WORDS - 1 loop
-					ICACHE_OUT(GET_SET(address_stall))(currentLine).words(i)
+					ICACHE(GET_SET(address_stall))(currentLine).words(i)
 						<= RAM_DATA(((i+1)*instr_size - 1) downto i*INSTR_SIZE);
 				end loop;
 
 				-- Write the DATA_OUT
-				index := conv_integer(unsigned(address_stall(ROCACHE_INDEXOFFSET - 1 downto 0)));
-				INT_OUT_DATA <= RAM_DATA(((index+1)*INSTR_SIZE - 1) downto index*INSTR_SIZE);
+				if((to_integer(unsigned(address_stall(ROCACHE_INDEXOFFSET - 1 downto 0)))) = 0) then
+					INT_OUT_DATA <= RAM_DATA(Instr_size - 1 downto 0);
+				else
+					INT_OUT_DATA <= RAM_DATA(2*Instr_size - 1 downto Instr_size);
+				end if;
 
 				STATE_NEXT <= STATE_COMPARE_TAGS;
 				INT_STALL <= '0';
@@ -140,24 +131,28 @@ begin
 					-- Is it a HIT ?
 					HIT := COMPARE_TAGS(
 						ADDRESS(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET),
-						ICACHE(GET_SET(ADDRESS))(i).tag(ROCACHE_TAGSIZE - 1 downto 0)
+						ICACHE_REG(GET_SET(ADDRESS))(i).tag(ROCACHE_TAGSIZE - 1 downto 0)
 					);
 
 					-- HIT!
 					if (HIT = '1') then
 
 						-- Is the entry valid?
-						if(ICACHE(GET_SET(ADDRESS))(i).valid = '1') then
+						if(ICACHE_REG(GET_SET(ADDRESS))(i).valid = '1') then
 							lineIndex:= i;
 
---							report string'("STATE: ") & integer'image(conv_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(conv_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(conv_integer(conv_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
+--							report string'("STATE: ") & integer'image(to_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(to_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(to_integer(to_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
 
 							HIT := '0'; -- Reset HIT
-							ICACHE_OUT(GET_SET(ADDRESS))(i).counter <= ICACHE(GET_SET(ADDRESS))(i).counter + 1;
+
+							if ICACHE_REG(GET_SET(ADDRESS))(i).counter /= 256 then
+								ICACHE(GET_SET(ADDRESS))(i).counter <= ICACHE_REG(GET_SET(ADDRESS))(i).counter + 1;
+							end if;
+
 							-- Print out the instruction
-							INT_OUT_DATA <= ICACHE(
+							INT_OUT_DATA <= ICACHE_REG(
 								GET_SET(ADDRESS))(lineIndex).words(
-									conv_integer(unsigned(ADDRESS(ROCACHE_INDEXOFFSET - 1 downto 0))
+									to_integer(unsigned(ADDRESS(ROCACHE_INDEXOFFSET - 1 downto 0))
 								)
 							);
 

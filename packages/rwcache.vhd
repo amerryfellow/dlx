@@ -34,11 +34,12 @@ end record;
 type RWCACHE_LINE is array (RWCACHE_LINES) of RWCACHE_RECORD;
 type RWCACHE_TYPE is array (RWCACHE_SETS) of RWCACHE_LINE;
 
-subtype state_type is std_logic_vector(1 downto 0);
-constant STATE_FLUSH_MEM			: state_type := "00";
-constant STATE_MISS 				: state_type := "01";
-constant STATE_COMPARE_TAGS			: state_type := "10";
-constant STATE_WRITE_MISS					: state_type := "11";
+subtype state_type is std_logic_vector(2 downto 0);
+constant STATE_FLUSH_MEM			: state_type := "000";
+constant STATE_MISS 				: state_type := "001";
+constant STATE_COMPARE_TAGS			: state_type := "010";
+constant STATE_WRITE_MISS					: state_type := "011";
+constant STATE_IDLE					: state_type := "100";
 
 function COMPARE_TAGS(
 	x : std_logic_vector(RWCACHE_TAGSIZE - 1 downto 0 );

@@ -277,7 +277,6 @@ begin
 				-- 1) Mispredicted branch
 				-- 2) Instruction cache stall
 				if JMP_REAL_LATCHED = '1' or ICACHE_STALL = '1' then
---				if ICACHE_STALL = '1' then
 					PIPE1 <= (others => '0');
 					PIPE1_STALL <= '1';
 				else
@@ -288,24 +287,23 @@ begin
 				PIPE2 <= PIPEREG12;
 				PIPE2_STALL <= PIPE1_STALL;
 
-				PIPE3_STALL <= PIPE2_STALL;
 				PIPE3 <= PIPEREG23;
+				PIPE3_STALL <= PIPE2_STALL;
 
 				PIPE4 <= PIPEREG34;
-				PIPE4_STALL <= PIPE3_STALL;
 			else
 				PIPE1_STALL <= '1';
 				PIPE2_STALL <= '1';
 				PIPE3_STALL <= '1';
-				PIPE4_STALL <= '1';
 
 				PIPE4 <= '0';
 			end if;
 
+			PIPE4_STALL <= PIPE3_STALL;
+
 			LATCHER <= not DCACHE_STALL ;
 		end if;
 	end process;
-
 
 end RTL;
 
