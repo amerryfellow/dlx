@@ -1,204 +1,138 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use ieee.numeric_std.all;
-use work.ROCACHE_PKG.all;
+use IEEE.STD_LOGIC_ARITH.all;
+use ieee.std_logic_misc.all;
 
-entity ROCACHE is
-	port (
-		CLK						: in std_logic;
-		RST						: in std_logic;  -- active high
-		ENABLE					: in std_logic;
-		ADDRESS					: in std_logic_vector(INSTR_SIZE - 1 downto 0);
-		OUT_DATA				: out std_logic_vector(INSTR_SIZE - 1 downto 0);
-		STALL					: out std_logic;
-		RAM_ISSUE				: out std_logic;
-		RAM_ADDRESS				: out std_logic_vector(INSTR_SIZE - 1 downto 0);
-		RAM_DATA				: in std_logic_vector(2*INSTR_SIZE - 1 downto 0);
-		RAM_READY				: in std_logic
-	);
-end ROCACHE;
+package ROCACHE_PKG is
+constant ROCACHE_WAYS			: natural := 4;
+constant ROCACHE_NUMSETS		: natural := 4;  --Depth of ICache
+constant ROCACHE_WORDS			: natural := 2;
+constant INSTR_SIZE 			: natural := 32;
+constant ROCACHE_SETINDEXSIZE	: natural := 2;
+constant ROCACHE_NUMLINES		: natural := ROCACHE_WAYS;
+constant ROCACHE_INDEXSIZE		: natural := 1;
+constant ROCACHE_TAGSIZE		: natural := INSTR_SIZE - ROCACHE_INDEXSIZE - ROCACHE_SETINDEXSIZE;
+constant ROCACHE_TAGOFFSET		: natural := INSTR_SIZE - ROCACHE_TAGSIZE;
+constant ROCACHE_SETOFFSET		: natural := ROCACHE_TAGOFFSET - ROCACHE_SETINDEXSIZE;
+constant ROCACHE_INDEXOFFSET	: natural := ROCACHE_INDEXSIZE;
+constant ROCACHE_COUNTERSIZE	: natural := 8;
 
-architecture Behavioral of ROCACHE is
-	signal ICACHE,ICACHE_REG							: ROCACHE_TYPE;
-	signal STATE_CURRENT					: state_type;
-	signal STATE_NEXT						: state_type;
-	signal INT_ISSUE_RAM_READ				: std_logic;
-	signal INT_OUT_DATA						: std_logic_vector(INSTR_SIZE -1 downto 0) := (others => '0');
-	signal INT_STALL							: std_logic;
+subtype ROCACHE_LINES is natural range 0 to ROCACHE_NUMLINES - 1;
+subtype ROCACHE_SETS is natural range 0 to 2**ROCACHE_SETINDEXSIZE - 1;
+subtype ROCACHE_INDEX is natural range 0 to 2**ROCACHE_INDEXSIZE - 1;
 
-begin
-	--
-	-- FSM Management
-	--
-	state_update: process(CLK, RST, STATE_NEXT,ICACHE)
+type INSTR_WORDS is array (ROCACHE_INDEX) of std_logic_vector(INSTR_SIZE - 1 downto 0);
+
+type ROCACHE_RECORD is
+	record
+		tag : std_logic_vector(ROCACHE_TAGSIZE-1 downto 0);
+		words : INSTR_WORDS;
+		counter : natural range 0 to 2**ROCACHE_COUNTERSIZE;
+		valid : std_logic;
+end record;
+
+type ROCACHE_LINE is array (ROCACHE_LINES) of ROCACHE_RECORD;
+type ROCACHE_TYPE is array (ROCACHE_SETS) of ROCACHE_LINE;
+
+subtype state_type is std_logic_vector(1 downto 0);
+constant STATE_FLUSH_MEM			: state_type := "00";
+constant STATE_MISS 				: state_type := "01";
+constant STATE_COMPARE_TAGS			: state_type := "10";
+constant STATE_IDLE					: state_type := "11";
+
+function COMPARE_TAGS(
+	x : std_logic_vector(ROCACHE_TAGSIZE - 1 downto 0 );
+	y : std_logic_vector(ROCACHE_TAGSIZE - 1 downto 0 )
+) return std_logic;
+
+function GET_SET(
+	x : std_logic_vector(INSTR_SIZE - 1 downto 0)
+) return integer;
+
+function GET_REPLACEMENT_LINE(
+	pc : std_logic_vector(INSTR_SIZE - 1 downto 0);
+	cache: ROCACHE_TYPE
+) return natural;
+
+end ROCACHE_PKG;
+
+package body ROCACHE_PKG is
+	function COMPARE_TAGS(
+			x : std_logic_vector(ROCACHE_TAGSIZE-1 downto 0);
+			y : std_logic_vector(ROCACHE_TAGSIZE-1 downto 0)
+		) return std_logic is
+
 	begin
-		if RST = '1' then	
-			STATE_CURRENT <= STATE_FLUSH_MEM;
+		return and_reduce(x xnor y);
+end COMPARE_TAGS;
 
-		elsif clk'event and clk = '1' then
-			STATE_CURRENT <= STATE_NEXT;	
-			ICACHE_REG <= ICACHE;
-		end if;
-	end process;
+function GET_SET (
+		x : std_logic_vector(INSTR_SIZE - 1 downto 0)
+	) return integer is
 
-	--
-	-- The MONSTER
-	--
-	main: process(STATE_CURRENT, ADDRESS, RAM_READY,RAM_DATA,INT_ISSUE_RAM_READ,ENABLE,ICACHE_REG)
-		variable HIT		 		: std_logic:='0';
-		variable int_mem			: std_logic_vector(2*INSTR_SIZE - 1 downto 0);
-		variable currentLine		: natural range 0 to 2**ROCACHE_COUNTERSIZE;
-		variable count_miss 		: natural range 0 to ROCACHE_NUMLINES;
-		variable index				: natural range 0 to 2**ROCACHE_INDEXOFFSET - 1;
-		variable lineIndex			: natural range 0 to ROCACHE_NUMLINES;
-		variable test				: natural;
-		variable address_stall		: std_logic_vector(INSTR_SIZE - 1 downto 0);
+	variable ret	: integer :=0;
+	variable y		: std_logic_vector(ROCACHE_TAGOFFSET-1 downto ROCACHE_SETOFFSET);
+
 	begin
-	count_miss := 0;
-	ICACHE <= ICACHE_REG;
-		case (STATE_CURRENT) is
+		y		:= x(ROCACHE_TAGOFFSET-1 downto ROCACHE_SETOFFSET);
+		ret		:= conv_integer(unsigned (y));
+		return ret;
+end GET_SET;
 
-		when  STATE_FLUSH_MEM =>
---			ADDRESS <= (others => '0');
-			for i in 0 to ROCACHE_NUMSETS - 1 loop
-				for j in 0 to ROCACHE_NUMLINES - 1 loop
+function GET_REPLACEMENT_LINE (
+		pc : std_logic_vector(INSTR_SIZE - 1 downto 0);
+		cache: ROCACHE_TYPE
+	) return natural is
 
-					ICACHE(i)(j).tag( ROCACHE_TAGSIZE - 1 downto 0 ) <= (others => '0');
-					ICACHE(i)(j).valid <= '0'; -- dirty bit
-					ICACHE(i)(j).counter <= 0;
+	variable count			: natural range 0 to 2**ROCACHE_COUNTERSIZE;
+	variable min_found		: std_logic;
+	variable i				: natural := 0;
+	variable to_evict		: natural range 0 to 2**ROCACHE_COUNTERSIZE;
+	variable countValid		: std_logic;
 
-						
+	begin
+--		count := cache( GET_SET(pc) )(i).counter;
+		to_evict := i;
+		countValid := '0';
 
-					for k in 0 to ROCACHE_WORDS - 1 loop
-						ICACHE(i)(j).words(k) <= (others => '1');
-					end loop;
-				end loop;
-			end loop;
-			address_stall  := (others => '0');
-			HIT := '0';
-			INT_ISSUE_RAM_READ <= '0';
-			STATE_NEXT <= STATE_IDLE;
+		-- Iterate
+--		while i < (ROCACHE_NUMLINES - 2) loop
+			-- Check counter value
+--			if(cache( GET_SET(pc) )(i+1).valid = '0') then
+--				to_evict := i + 1;
+--				exit;
+--			elsif(cache( GET_SET(pc) )(i+1).counter < count) then
+--				-- New least frequently used -> save its index and counter value
+--				count := cache( GET_SET(pc) )(i+1).counter;
+--				to_evict := i + 1;
+--			end if;
 
-		-- IDLE STATE
-		-- Do nothing, assume miss
-		when STATE_IDLE =>
-			STATE_NEXT <= STATE_COMPARE_TAGS;
+--			i := i + 1 ;
+--		end loop;
 
-		-- MISS STATE
-		-- Probe the RAM and wait until RAM_READY
-		when STATE_MISS =>
-			-- I gots the data
-			if RAM_READY = '1' then
+		-- Iterate
+		for i in 0 to ROCACHE_NUMLINES - 1 loop
+			-- If not valid -> USE IT
+			if(cache( GET_SET(pc) )(i).valid = '0') then
+				to_evict := i;
+				exit;
 
-				-- Identify line to hold the new data
-				currentLine := GET_REPLACEMENT_LINE(address_stall, ICACHE_REG);
+			-- Line is busy, but counter not initialized
+			elsif(countValid = '0') then
+				count := cache(GET_SET(pc))(i).counter;
+				countValid := '1';
+				to_evict := i;
 
-				report "----------------- Instr " & integer'image(to_integer(unsigned(address_stall))) & "-> Writing TAG " & integer'image(to_integer(unsigned(address_stall(INSTR_SIZE-1 downto ROCACHE_TAGOFFSET)))) & " in set " & integer'image(GET_SET(address_stall)) & " line " & integer'image(currentLine);
-
-				-- Store TAG
-				ICACHE(GET_SET(address_stall))(currentLine).tag <= address_stall(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET);
-
-				-- Reset LFU counter
-				ICACHE(GET_SET(address_stall))(currentLine).counter <= 0;
-
-				-- Set valid bit
-				ICACHE(GET_SET(address_stall))(currentLine).valid <= '1';
-
-				-- Fetch the line from memory data bus and write it into the cache data
-				for i in 0 to ROCACHE_WORDS - 1 loop
-					ICACHE(GET_SET(address_stall))(currentLine).words(i)
-						<= RAM_DATA(((i+1)*instr_size - 1) downto i*INSTR_SIZE);
-				end loop;
-
-				-- Write the DATA_OUT
-				if((to_integer(unsigned(address_stall(ROCACHE_INDEXOFFSET - 1 downto 0)))) = 0) then
-					INT_OUT_DATA <= RAM_DATA(Instr_size - 1 downto 0);
-				else
-					INT_OUT_DATA <= RAM_DATA(2*Instr_size - 1 downto Instr_size);
-				end if;
-
-				STATE_NEXT <= STATE_COMPARE_TAGS;
-				INT_STALL <= '0';
-				INT_ISSUE_RAM_READ <= '0';
+			-- Line is busy, and counter initialized: check if lower
+			elsif(cache( GET_SET(pc) )(i).counter < count) then
+				-- New least frequently used -> save its index and counter value
+				count := cache( GET_SET(pc) )(i).counter;
+				to_evict := i;
 			end if;
 
-		-- Fetch instruction and print it if HIT
-		when STATE_COMPARE_TAGS =>
-			if(ENABLE = '1') then
-				INT_STALL <= '1';
+		end loop;
 
-				-- Look in the ICACHE
-				for i in 0 to ROCACHE_NUMLINES - 1 loop
+		return to_evict;
+end GET_REPLACEMENT_LINE;
 
-					-- Is it a HIT ?
-					HIT := COMPARE_TAGS(
-						ADDRESS(INSTR_SIZE - 1 downto ROCACHE_TAGOFFSET),
-						ICACHE_REG(GET_SET(ADDRESS))(i).tag(ROCACHE_TAGSIZE - 1 downto 0)
-					);
-
-					-- HIT!
-					if (HIT = '1') then
-
-						-- Is the entry valid?
-						if(ICACHE_REG(GET_SET(ADDRESS))(i).valid = '1') then
-							lineIndex:= i;
-
---							report string'("STATE: ") & integer'image(to_integer(unsigned(STATE_CURRENT))) & string'(" || ADDRESS: ") & integer'image(to_integer(unsigned(ADDRESS))) & string'(" || HIT: ") & integer'image(to_integer(to_integer(HIT))) & string'(" || i: ") & integer'image(i) & string'(" || offset: ") & integer'image(GET_SET(ADDRESS)) & string'(" || count_miss = ") & integer'image(count_miss) & string'(" || test: ") & integer'image(test);
-
-							HIT := '0'; -- Reset HIT
-							ICACHE(GET_SET(ADDRESS))(i).counter <= ICACHE(GET_SET(ADDRESS))(i).counter + 1;
-							-- Print out the instruction
-							INT_OUT_DATA <= ICACHE_REG(
-								GET_SET(ADDRESS))(lineIndex).words(
-									to_integer(unsigned(ADDRESS(ROCACHE_INDEXOFFSET - 1 downto 0))
-								)
-							);
-
-							INT_STALL <= '0';
-
-							-- Next state: the same
-							STATE_NEXT <= STATE_COMPARE_TAGS;
-
-							count_miss := 0;
-							exit;
-
-						-- The entry is not valid. Count as miss
-						else
-							count_miss := count_miss + 1;
-						end if;
-
-					-- Miss :(
-					else
-						count_miss := count_miss + 1;
-					end if;
-
-				end loop;
-
-				-- Miss?
-				if (count_miss = ROCACHE_NUMLINES) then
-					address_stall := ADDRESS;
-					INT_ISSUE_RAM_READ <= '1';
-					STATE_NEXT <= STATE_MISS;
-				end if;
-
-				-- Reset the counter
-				count_miss := 0;
-			else
-				STATE_NEXT <= STATE_COMPARE_TAGS;
-			end if;
-		when OTHERS => null;
-		end case;
-
---		if(STATE_CURRENT = STATE_MISS) then
---			INT_ISSUE_RAM_READ <= '1';
---		else
---			INT_ISSUE_RAM_READ <= '0';
---		end if;
-
-	end process;
-
-	STALL			<= INT_STALL;
-	RAM_ISSUE		<= INT_ISSUE_RAM_READ;
-	RAM_ADDRESS		<= ADDRESS(INSTR_SIZE - 1 downto 1) & '0' when INT_ISSUE_RAM_READ = '1' else (others => '0');
-	OUT_DATA		<= INT_OUT_DATA when INT_STALL = '0' else (others =>'0');
-end Behavioral;
+end package body;

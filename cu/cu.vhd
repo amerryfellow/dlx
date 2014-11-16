@@ -124,8 +124,10 @@ begin
 	ALU_FUNC			<= PIPE2(7 downto 3);
 
 	-- Stage MEM
-	MEMORY_ENABLE		<= PIPE3(2);
-	MEMORY_RNOTW		<= PIPE3(1);
+--	MEMORY_ENABLE		<= PIPE3(2);
+--	MEMORY_RNOTW		<= PIPE3(1);
+	MEMORY_ENABLE		<= PIPE2(2);
+	MEMORY_RNOTW		<= PIPE2(1);
 
 	-- Stage WB
 	WRF_RD_ENABLE		<= PIPE4;

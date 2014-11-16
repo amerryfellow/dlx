@@ -228,13 +228,23 @@ architecture structural of DLX is
 	end component;
 
 	component RWCACHE is
+		generic (
+			regaddrsize : integer
+		);
 		port (
 			CLK						: in std_logic;
 			RST						: in std_logic;  -- active high
-			ENABLE					: in std_logic;
-			READNOTWRITE			: in std_logic;
-			ADDRESS					: in std_logic_vector(DATA_SIZE - 1 downto 0);
-			INOUT_DATA				: inout std_logic_vector(DATA_SIZE - 1 downto 0);
+			ENABLE_EX					: in std_logic;
+			READNOTWRITE_EX			: in std_logic;
+
+			ALU_OUT_REAL			: in std_logic_vector(DATA_SIZE - 1 downto 0);
+			RS2_DATA_EX				: in std_logic_vector(DATA_SIZE - 1 downto 0);
+			RS2_EX					: in std_logic_vector(regaddrsize-1 downto 0);
+			RD_MEM					: in std_logic_vector(regaddrsize-1 downto 0);
+			MEM_STALL				: in std_logic;
+			LATCHER					: in std_logic;
+
+			MEM_DATA				: out std_logic_vector(DATA_SIZE - 1 downto 0);
 			STALL					: out std_logic;
 			RAM_ISSUE				: out std_logic;
 			RAM_READNOTWRITE		: out std_logic;
@@ -424,7 +434,7 @@ begin
 	-- JUMPER forward logic
 	MUX_FWDJ1 : MUX
 		generic map ( WORD_SIZE )
-		port map ( FWDJ0, ALU_OUT_MEM, RS1_EQ_RD_MEM, FWDJ );
+		port map ( FWDJ0, MEM_DATA, RS1_EQ_RD_MEM, FWDJ );
 
 	MUX_FWDJ0 : MUX
 		generic map ( WORD_SIZE )
@@ -470,7 +480,7 @@ begin
 	-- ALU forward logic
 	MUX_FWDA1 : MUX
 		generic map ( WORD_SIZE )
-		port map ( FWDA0, ALU_OUT_MEM, RS1_EX_EQ_RD_MEM, FWDA1 );
+		port map ( FWDA0, MEM_DATA, RS1_EX_EQ_RD_MEM, FWDA1 );
 
 	MUX_FWDA0 : MUX
 		generic map ( WORD_SIZE )
@@ -478,7 +488,7 @@ begin
 
 	MUX_FWDB1 : MUX
 		generic map ( WORD_SIZE )
-		port map ( FWDB0, ALU_OUT_MEM, RS2_EX_EQ_RD_MEM, FWDB1 );
+		port map ( FWDB0, MEM_DATA, RS2_EX_EQ_RD_MEM, FWDB1 );
 
 	MUX_FWDB0 : MUX
 		generic map ( WORD_SIZE )
@@ -500,9 +510,9 @@ begin
 		generic map ( DATA_SIZE )
 		port map ( ALU_OUT, IMMEDIATE_EX, MUXALUOUT_CTR, ALU_OUT_REAL );
 
-	PIPEREG_ALU_OUT: REGISTER_FDL
-		generic map (32)
-		port map(ALU_OUT_REAL, LATCHER, CLK, RST, ALU_OUT_MEM);
+--	PIPEREG_ALU_OUT: REGISTER_FDL
+--		generic map (32)
+--		port map(ALU_OUT_REAL, LATCHER, CLK, RST, ALU_OUT_MEM);
 
 	PIPEREG_IMMEDIATE_EX: REGISTER_FDL
 		generic map (32)
@@ -522,19 +532,9 @@ begin
 
 	-- STAGE FOUR
 
-	MEM_ADDRESS <= ALU_OUT_MEM;
-	MEM_DATA <= ALU_OUT_MEM when MEMORY_ENABLE = '0' else
-				RS2_DATA_MEM1 when MEMORY_RNOTW = '0' else
-				(others => 'Z');
-
-	RS2_MEM_EQ_RD_WB <= (not or_reduce( RS2_MEM xor RD_WB ) and ( not WB_STALL ));
-
-	MUX_RS2_DATA_MEM1 : MUX
-		generic map ( WORD_SIZE )
-		port map ( RS2_DATA_MEM, MEM_DATA_WB, RS2_MEM_EQ_RD_WB, RS2_DATA_MEM1 );
-
 	DCACHE : RWCACHE
-		port map ( CLK, RST, MEMORY_ENABLE, MEMORY_RNOTW, MEM_ADDRESS, MEM_DATA, DCACHE_STALL, DRAM_ISSUE, DRAM_READNOTWRITE, DRAM_ADDRESS, DRAM_DATA, DRAM_READY );
+		generic map ( wrfLogNumWindows+wrfLogNumRegsPerWin+2 )
+		port map ( CLK, RST, MEMORY_ENABLE, MEMORY_RNOTW, ALU_OUT_REAL, RS2_DATA_EX, RS2_EX, RD_MEM, MEM_STALL, LATCHER, MEM_DATA, DCACHE_STALL, DRAM_ISSUE, DRAM_READNOTWRITE, DRAM_ADDRESS, DRAM_DATA, DRAM_READY );
 
 	PIPEREG_RD_MEM: REGISTER_FDL
 		generic map (wrfLogNumWindows+wrfLogNumRegsPerWin+2)
