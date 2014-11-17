@@ -42,7 +42,6 @@ architecture Behavioral of RWCACHE is
 	signal ADDRESS							: std_logic_vector(DATA_SIZE -1 downto 0);
 	signal IN_DATA							: std_logic_vector(DATA_SIZE -1 downto 0);
 	signal INT_MEM_DATA							: std_logic_vector(DATA_SIZE -1 downto 0);
-	signal LAST								: std_logic_vector(DATA_SIZE -1 downto 0);
 	signal INT_RAM_DATA						: std_logic_vector(2*DATA_SIZE -1 downto 0) := (others => 'Z');
 	signal NOP_OUT							: std_logic;
 	signal INT_STALL							: std_logic;
@@ -52,8 +51,10 @@ begin
 	--
 	-- FSM Management
 	--
-	state_update: process(CLK, RST, STATE_NEXT)
+	state_update: process(CLK, RST, STATE_NEXT, LATCHER)
 		variable RS2_MEM_EQ_RD_WB : std_logic;
+		variable LATCHED_RS2_DATA_EX : std_logic_vector(DATA_SIZE-1 downto 0);
+		variable LATCHED_ALU_OUT_REAL : std_logic_vector(DATA_SIZE-1 downto 0);
 	begin
 		if RST = '1' then
 			STATE_CURRENT <= STATE_FLUSH_MEM;
@@ -68,13 +69,18 @@ begin
 				ENABLE <= '1';
 			end if;
 
-			ADDRESS <= ALU_OUT_REAL;
+			if LATCHER = '1' then
+				LATCHED_RS2_DATA_EX := RS2_DATA_EX;
+				LATCHED_ALU_OUT_REAL := ALU_OUT_REAL;
+			end if;
+
+			ADDRESS <= LATCHED_ALU_OUT_REAL;
 			RS2_MEM_EQ_RD_WB := (not or_reduce( RS2_EX xor RD_MEM ) and ( not MEM_STALL ));
 
 			if RS2_MEM_EQ_RD_WB = '1' then
-				IN_DATA <= LAST;
+				IN_DATA <= INT_MEM_DATA;
 			else
-				IN_DATA <= RS2_DATA_EX;
+				IN_DATA <= LATCHED_RS2_DATA_EX;
 			end if;
 		end if;
 	end process;
@@ -92,10 +98,10 @@ begin
 		variable address_stall		: std_logic_vector(DATA_SIZE - 1 downto 0);
 		variable data_stall			: std_logic_vector(DATA_SIZE - 1 downto 0);
 		variable readnotwrite_stall	: std_logic := '0';
-
+		variable test : integer;
 
 	begin
-		report "addr" & integer'image(conv_integer(unsigned(ADDRESS))) & " rnw " & std_logic'image(READNOTWRITE) & "inout" & integer'image(conv_integer(unsigned(IN_DATA))) & " indata " & integer'image(conv_integer(unsigned(IN_DATA))) & " enable " & std_logic'image(ENABLE); -- & "" & ;
+		report "addr" & integer'image(conv_integer(unsigned(ADDRESS))) & " rnw " & std_logic'image(READNOTWRITE) & "inout" & integer'image(conv_integer(unsigned(IN_DATA))) & " indata " & integer'image(conv_integer(unsigned(IN_DATA))) & " enable " & std_logic'image(ENABLE) & " state " & integer'image(conv_integer(unsigned(STATE_CURRENT))) & " ram ready " & std_logic'image(RAM_READY);
 
 		count_miss := 0;
 		CACHE <= CACHE_REG;
@@ -192,6 +198,12 @@ begin
 				NOP_OUT <= '1';
 				INT_ISSUE_RAM_READ <= '0';
 
+				if(READNOTWRITE = '0') then
+					INT_INOUT_DATA <= RS2_DATA_EX;
+
+					report "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Writing " & integer'image(conv_integer(unsigned(IN_DATA))) & " into " & integer'image(conv_integer(unsigned(ADDRESS)));
+				end if;
+
 				-- Look in the CACHE
 				for i in 0 to RWCACHE_NUMLINES - 1 loop
 
@@ -220,6 +232,13 @@ begin
 										conv_integer(unsigned(ADDRESS(RWCACHE_INDEXOFFSET - 1 downto 0))
 									)
 								);
+
+								test := conv_integer(unsigned(CACHE_REG(
+									GET_SET(ADDRESS))(lineIndex).words(
+										conv_integer(unsigned(ADDRESS(RWCACHE_INDEXOFFSET - 1 downto 0))
+									)
+								)));
+								report "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Reading " & integer'image(test) & " into " & integer'image(conv_integer(unsigned(ADDRESS)));
 							else
 								CACHE(
 									GET_SET(ADDRESS))(lineIndex).words(
@@ -269,7 +288,9 @@ begin
 				end if;
 
 				-- Reset the counter
+				count_miss := 0;
 			else
+				INT_ISSUE_RAM_READ <= '0';
 				INT_INOUT_DATA <= ALU_OUT_REAL;
 				STATE_NEXT <= STATE_COMPARE_TAGS;
 			end if;
@@ -285,6 +306,7 @@ begin
 	RAM_READNOTWRITE <= INT_RAM_READNOTWRITE;
 	RAM_ADDRESS		<= address_to_mem when (rewrite = '1') else
 						int_address_data  when (INT_ISSUE_RAM_READ='1') else (others=> 'Z') ;
+	RAM_DATA <= INT_RAM_DATA when rewrite = '1' else (others =>'Z');
 	INT_MEM_DATA		<= INT_INOUT_DATA;
 	MEM_DATA		<= INT_MEM_DATA;
 end Behavioral;

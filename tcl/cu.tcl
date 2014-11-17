@@ -40,7 +40,26 @@ vcom -reportprogress 300 -work work rwcache/rwcache.vhd
 vcom -reportprogress 300 -work work dlx.vhd
 vcom -reportprogress 300 -work work testbench.vhd
 vsim work.DLX_TB
+
+add wave -position insertpoint -radix unsigned \
+sim:/dlx_tb/GIANLUCA/CONTROL_UNIT/PC
+add wave -position insertpoint -radix hexadecimal \
+sim:/dlx_tb/GIANLUCA/CONTROL_UNIT/IR
+
+add wave -position insertpoint -color gold -radix unsigned \
+sim:/dlx_tb/GIANLUCA/CONTROL_UNIT/MEMORY_ENABLE \
+sim:/dlx_tb/GIANLUCA/CONTROL_UNIT/MEMORY_RNOTW \
+sim:/dlx_tb/GIANLUCA/DCACHE/ADDRESS \
+sim:/dlx_tb/GIANLUCA/DCACHE/IN_DATA
+
+add wave -position insertpoint -color blue -radix unsigned \
+sim:/dlx_tb/GIANLUCA/CONTROL_UNIT/WRF_RD_ENABLE \
+sim:/dlx_tb/GIANLUCA/RD_WB \
+sim:/dlx_tb/GIANLUCA/RD_DATA_WB
+
+
 add wave -position insertpoint sim:/DLX_TB/*
 add wave -position insertpoint sim:/DLX_TB/GIANLUCA/*
 add wave -position insertpoint sim:/DLX_TB/DRAM/*
+add wave -position insertpoint sim:/dlx_tb/GIANLUCA/DCACHE/*
 run 30000 ns

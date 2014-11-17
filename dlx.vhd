@@ -234,7 +234,7 @@ architecture structural of DLX is
 		port (
 			CLK						: in std_logic;
 			RST						: in std_logic;  -- active high
-			ENABLE_EX					: in std_logic;
+			ENABLE_EX				: in std_logic;
 			READNOTWRITE_EX			: in std_logic;
 
 			ALU_OUT_REAL			: in std_logic_vector(DATA_SIZE - 1 downto 0);
@@ -438,7 +438,7 @@ begin
 
 	MUX_FWDJ0 : MUX
 		generic map ( WORD_SIZE )
-		port map ( RS1_DATA, MEM_DATA_WB, RS1_EQ_RD_WB, FWDJ0 );
+		port map ( RS1_DATA, RD_DATA_WB, RS1_EQ_RD_WB, FWDJ0 );
 
 	-- Comparator
 
